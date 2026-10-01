@@ -135,7 +135,7 @@
   <label class="field"><span>Parcel weight (kg)</span>
     <div class="stepper">
       <button type="button" id="minus" aria-label="Decrease weight"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-      <input id="weight" type="number" min="0" step="0.1" inputmode="decimal" placeholder="0.0" autofocus>
+      <input id="weight" type="number" min="0" step="any" inputmode="decimal" placeholder="0.0" autofocus>
       <button type="button" id="plus" aria-label="Increase weight"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
   </label>
@@ -440,8 +440,8 @@
   // Elsewhere: copy the image and open WhatsApp so it can be pasted into the chat.
   $("sendMainLabel").textContent = canShareFiles ? "Send quote image" : "Send on WhatsApp";
   $("sendMain").classList.toggle("whatsapp", !canShareFiles);
-  $("sendIconShare").hidden = !canShareFiles;
-  $("sendIconWhatsApp").hidden = canShareFiles;
+  $("sendIconShare").toggleAttribute("hidden", !canShareFiles);
+  $("sendIconWhatsApp").toggleAttribute("hidden", canShareFiles);
   $("sendHint").textContent = canShareFiles
     ? "Choose WhatsApp, Messages, Viber, Messenger or any app."
     : canCopyImage
