@@ -116,8 +116,8 @@
     .check input { width:20px; height:20px; }
     details.box summary { padding:6px 0; }
   }
-  /* Phones and short (landscape) screens: compact header, Publish pinned to the bottom */
-  @media (max-width: 720px), (max-height: 500px) {
+  /* Phones, tablets and short (landscape) screens: compact header, Publish pinned to the bottom */
+  @media (max-width: 900px), (max-height: 500px) {
     input, select, textarea { font-size:16px; }
     body { padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
     .topbar { position:static; }
@@ -130,7 +130,6 @@
                    border-top:1px solid var(--line); box-shadow:0 -6px 20px rgba(29,36,51,.08);
                    padding:10px max(14px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
     .publish-bar .primary { padding:10px 18px; }
-    .publish-bar .long { display:none; }
     .layout { margin:12px auto 24px; padding:0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); gap:12px; }
     .col { gap:12px; }
     .card { padding:16px; }
@@ -138,6 +137,11 @@
     .zones td.mult { width:104px; }
     .danger-zone { flex-wrap:wrap; }
     .toast { bottom:calc(88px + env(safe-area-inset-bottom)); }
+  }
+  @media (max-width: 480px) {
+    .toolbar { display:grid; grid-template-columns:1fr 1fr; overflow:visible; }
+    .toolbar > * { justify-content:center; }
+    .publish-bar .long { display:none; }
   }
   @media (max-width: 360px) {
     .fields, .fields.two { grid-template-columns:1fr; }
