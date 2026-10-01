@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Shipping Admin: Canada → Sri Lanka</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2433; --muted:#6b7385; --accent:#1f5eff; --accent-soft:#f0f4ff; --line:#e3e6ec;
+          --warn:#b54708; --warn-soft:#fffaeb; --ok:#067647; --ok-soft:#ecfdf3; --danger:#b42318; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+
+  [hidden] { display:none !important; }
+
+  /* Top bar */
+  .topbar { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line); }
+  .topbar-inner { max-width:1240px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .brand { margin-right:auto; }
+  .brand h1 { margin:0; font-size:18px; }
+  .brand p { margin:0; font-size:13px; color:var(--muted); }
+  .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; }
+  .pill::before { content:""; width:8px; height:8px; border-radius:50%; background:currentColor; }
+  .pill.ok { background:var(--ok-soft); color:var(--ok); }
+  .pill.warn { background:var(--warn-soft); color:var(--warn); }
+  .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  button, .btn { font:inherit; font-weight:500; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+  button:hover, .btn:hover { border-color:#c9ced8; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  button.primary:hover { filter:brightness(1.08); }
+  button.danger { color:var(--danger); }
+  button.link { border:none; padding:4px 6px; color:var(--danger); background:none; }
+
+  /* Layout: settings left, live preview right */
+  .layout { max-width:1240px; margin:20px auto 40px; padding:0 20px; display:grid; grid-template-columns:minmax(0, 1.55fr) minmax(340px, 1fr); gap:20px; align-items:start; }
+  .col { display:flex; flex-direction:column; gap:16px; min-width:0; }
+  .preview { position:sticky; top:84px; }
+  @media (max-width: 960px) { .layout { grid-template-columns:1fr; } .preview { position:static; } }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
+  .card-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:14px; }
+  .card h2 { margin:0; font-size:15px; }
+  .card-head p { margin:2px 0 0; font-size:12px; color:var(--muted); }
+
+  .fields { display:grid; grid-template-columns:repeat(auto-fill, minmax(190px, 1fr)); gap:14px 16px; }
+  .fields.two { grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); }
+  label.f { display:flex; flex-direction:column; gap:5px; font-weight:600; font-size:13px; }
+  label.f small { font-weight:400; color:var(--muted); font-size:12px; }
+  label.f.wide { grid-column:1 / -1; }
+  input, select, textarea { font:inherit; font-weight:400; color:var(--ink); padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; width:100%; }
+  textarea { resize:vertical; min-height:60px; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  .affix { display:flex; align-items:stretch; }
+  .affix span { display:grid; place-items:center; padding:0 10px; border:1px solid var(--line); background:#f9fafb; color:var(--muted); font-size:13px; }
+  .affix span:first-child { border-right:none; border-radius:8px 0 0 8px; }
+  .affix span:last-child { border-left:none; border-radius:0 8px 8px 0; }
+  .affix input { border-radius:0; }
+  .affix input:first-child { border-radius:8px 0 0 8px; }
+  .affix input:last-child { border-radius:0 8px 8px 0; }
+
+  .check { display:flex; align-items:center; gap:8px; font-size:13px; margin-top:14px; cursor:pointer; }
+  .check input { width:auto; }
+
+  /* Pricing summary */
+  .equation { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-top:16px; padding:12px 14px; border-radius:10px; background:var(--accent-soft); font-size:13px; color:var(--muted); }
+  .equation b { color:var(--ink); font-size:15px; }
+  .equation .eq-result { margin-left:auto; }
+  .equation .eq-result b { color:var(--accent); font-size:18px; }
+
+  /* Zones */
+  table { width:100%; border-collapse:collapse; }
+  .zones th { text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding:0 6px 6px 0; }
+  .zones td { padding:4px 6px 4px 0; }
+  .zones td:last-child { width:1%; white-space:nowrap; }
+  .zones td.mult { width:130px; }
+
+  /* Preview */
+  .preview .card { padding:18px; }
+  .sub-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  details.box { margin-top:12px; }
+  details.box summary { cursor:pointer; font-size:13px; font-weight:600; color:var(--accent); }
+  details.box .sub-fields { grid-template-columns:repeat(3, 1fr); margin-top:10px; }
+  .result { margin-top:16px; padding:16px; border-radius:12px; background:var(--accent-soft); }
+  .result-top { display:flex; justify-content:space-between; align-items:center; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; }
+  .seg[hidden] { display:none; }
+  .seg button { border:none; border-radius:0; padding:5px 14px; font-weight:600; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  .total { font-size:32px; font-weight:700; margin:6px 0 0; font-variant-numeric:tabular-nums; }
+  .muted { color:var(--muted); font-size:12px; }
+  .free { color:var(--ok); font-weight:600; }
+  .notice { padding:10px 12px; border-radius:8px; background:var(--warn-soft); color:var(--warn); border:1px solid #fedf89; font-size:13px; margin-top:12px; }
+  .notice[hidden] { display:none; }
+  .breakdown { margin-top:12px; font-size:13px; }
+  .breakdown td { padding:6px 0; border-bottom:1px solid var(--line); }
+  .breakdown td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .breakdown tr.hidden-row td { color:var(--warn); }
+  .breakdown tr.sum td { font-weight:700; border-bottom:none; font-size:14px; }
+
+  .danger-zone { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .danger-zone p { margin:0; font-size:12px; color:var(--muted); }
+
+  .toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%, 20px); opacity:0; pointer-events:none; transition:.2s;
+           background:#1d2433; color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; z-index:10; }
+  .toast.show { opacity:1; transform:translate(-50%, 0); }
+  body.loading > * { visibility:hidden; }
+</style>
+</head>
+<body class="loading">
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <h1>Shipping Admin</h1>
+      <p>Canada → Sri Lanka · changes go live when you publish</p>
+    </div>
+    <span id="publishState" class="pill"></span>
+    <div class="toolbar">
+      <a class="btn" href="./" target="_blank" rel="noopener">Open customer page ↗</a>
+      <button id="exportBtn" type="button" title="Download a backup of all admin settings">Backup</button>
+      <button id="importBtn" type="button" title="Restore admin settings from a backup file">Restore</button>
+      <input id="importFile" type="file" accept="application/json" hidden>
+      <button id="logoutBtn" type="button">Log out</button>
+      <button id="publishBtn" type="button" class="primary">Publish to customer page</button>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- Settings -->
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><div><h2>Pricing</h2><p>What the customer pays per kg. The hidden cost is never shown to customers.</p></div></div>
+      <div class="fields">
+        <label class="f">Base rate per kg
+          <div class="affix"><span class="baseCur">CAD</span><input id="s_perKg" type="number" min="0" step="0.01"></div>
+        </label>
+        <label class="f">Hidden cost
+          <div class="affix"><input id="s_hiddenPct" type="number" min="0" step="0.1"><span>%</span></div>
+        </label>
+        <label class="f">Currency
+          <input id="s_currency" type="text" maxlength="3">
+          <small>Prices are charged in this currency (3-letter code)</small>
+        </label>
+      </div>
+      <div class="equation">
+        <span>Base <b id="eqBase">-</b></span><span>+</span>
+        <span>Hidden <b id="eqHidden">-</b></span><span>=</span>
+        <span class="eq-result">Customer pays <b id="eqCustomer">-</b> / kg</span>
+      </div>
+      <label class="check"><input id="s_showHidden" type="checkbox"> Show the hidden cost in the test breakdown</label>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Weight rules</h2><p>How the charged weight is worked out.</p></div></div>
+      <div class="fields two">
+        <label class="f">Round weight up to
+          <select id="s_roundTo">
+            <option value="0">No rounding</option>
+            <option value="0.1">Next 0.1 kg</option>
+            <option value="0.5">Next 0.5 kg</option>
+            <option value="1">Next 1 kg</option>
+          </select>
+          <small>e.g. "Next 1 kg": 1.2 kg is charged as 2 kg</small>
+        </label>
+        <label class="f">Minimum charged weight
+          <div class="affix"><input id="s_minWeight" type="number" min="0" step="0.01"><span>kg</span></div>
+          <small>0 = no minimum</small>
+        </label>
+        <label class="f">First-kg price (before hidden cost)
+          <div class="affix"><span class="baseCur">CAD</span><input id="s_firstKg" type="number" min="0" step="0.01"></div>
+          <small>0 = first kg uses the base rate</small>
+        </label>
+        <label class="f">Volumetric divisor
+          <div class="affix"><input id="s_volDivisor" type="number" min="0" step="1"><span>cm³/kg</span></div>
+          <small>Box-size pricing (admin test only). 0 = off</small>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Extra fees &amp; tax</h2><p>Leave at 0 if not used.</p></div></div>
+      <div class="fields">
+        <label class="f">Fee per shipment
+          <div class="affix"><span class="baseCur">CAD</span><input id="s_baseFee" type="number" min="0" step="0.01"></div>
+        </label>
+        <label class="f">Handling per package
+          <div class="affix"><span class="baseCur">CAD</span><input id="s_handling" type="number" min="0" step="0.01"></div>
+        </label>
+        <label class="f">Fuel surcharge
+          <div class="affix"><input id="s_fuelPct" type="number" min="0" step="0.1"><span>%</span></div>
+        </label>
+        <label class="f">Minimum charge
+          <div class="affix"><span class="baseCur">CAD</span><input id="s_minCharge" type="number" min="0" step="0.01"></div>
+        </label>
+        <label class="f">Free shipping over
+          <div class="affix"><span class="baseCur">CAD</span><input id="s_freeOver" type="number" min="0" step="0.01"></div>
+          <small>Order value. Adds an order-value box for customers</small>
+        </label>
+        <label class="f">Tax
+          <div class="affix"><input id="s_taxPct" type="number" min="0" step="0.01"><span>%</span></div>
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><h2>Destinations</h2><p>Price multiplier per destination. With 2 or more, customers get a destination menu.</p></div>
+        <button id="addZone" type="button">+ Add</button>
+      </div>
+      <table class="zones">
+        <thead><tr><th>Name</th><th>Multiplier</th><th></th></tr></thead>
+        <tbody id="zoneRows"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Quote details</h2><p>Shown on the customer page and on printed, saved and shared quotes.</p></div></div>
+      <div class="fields two">
+        <label class="f">Business name
+          <input id="s_businessName" type="text" placeholder="e.g. Lanka Express Cargo">
+        </label>
+        <label class="f">Contact
+          <input id="s_contact" type="text" placeholder="e.g. WhatsApp +1 416 555 0100">
+        </label>
+        <label class="f wide">Note on quotes
+          <textarea id="s_quoteNote" rows="2"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <section class="card danger-zone">
+      <p>Reset every setting on this page to the original defaults.</p>
+      <button id="resetBtn" type="button" class="danger">Reset to defaults</button>
+    </section>
+  </div>
+
+  <!-- Live preview -->
+  <aside class="col preview">
+    <section class="card">
+      <div class="card-head"><div><h2>Test a shipment</h2><p>Live preview with full breakdown.</p></div></div>
+      <div class="sub-fields">
+        <label class="f">Weight / package
+          <div class="affix"><input id="weight" type="number" min="0" step="0.1" value="1"><span>kg</span></div>
+        </label>
+        <label class="f">Packages
+          <input id="qty" type="number" min="1" step="1" value="1">
+        </label>
+        <label class="f">Destination
+          <select id="zone"></select>
+        </label>
+        <label class="f">Order value
+          <div class="affix"><span class="baseCur">CAD</span><input id="orderValue" type="number" min="0" step="0.01" placeholder="0.00"></div>
+        </label>
+      </div>
+      <details class="box">
+        <summary>Box size (optional)</summary>
+        <div class="sub-fields">
+          <label class="f">L (cm)<input id="len" type="number" min="0" step="0.1"></label>
+          <label class="f">W (cm)<input id="wid" type="number" min="0" step="0.1"></label>
+          <label class="f">H (cm)<input id="hei" type="number" min="0" step="0.1"></label>
+        </div>
+      </details>
+
+      <div class="notice" id="notice" hidden></div>
+
+      <div class="result">
+        <div class="result-top">
+          <span class="muted">Customer pays</span>
+          <div class="seg" id="curToggle">
+            <button type="button" data-cur="base">CAD</button>
+            <button type="button" data-cur="LKR">LKR</button>
+          </div>
+        </div>
+        <div class="total" id="total">-</div>
+        <div class="muted" id="totalSub"></div>
+        <div class="muted" id="fxInfo" style="margin-top:4px"></div>
+      </div>
+      <table class="breakdown"><tbody id="breakdown"></tbody></table>
+    </section>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="config.js"></script>
+<script src="shared.js"></script>
+<script>
+(async () => {
+  const { num, round2, calculate, formatMoney, createCurrencyView } = Shipping;
+  const $ = (id) => document.getElementById(id);
+
+  // Admin token from the passcode login on the customer page (index.html).
+  const TOKEN_KEY = "shippingAdminToken";
+  const api = async (path, options = {}) => {
+    const res = await fetch(SHIPPING_API + path, {
+      cache: "no-store",
+      ...options,
+      headers: { ...options.headers, "x-admin-token": localStorage.getItem(TOKEN_KEY) || "" },
+    });
+    if (res.status === 401) {
+      localStorage.removeItem(TOKEN_KEY);
+      location.href = "./?login";
+      throw new Error("Not logged in");
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    return data;
+  };
+  const FIELDS = ["currency", "perKg", "hiddenPct", "firstKg", "roundTo", "minWeight", "volDivisor",
+                  "baseFee", "handling", "fuelPct", "minCharge", "freeOver", "taxPct"];
+  const TEXT_FIELDS = ["businessName", "contact", "quoteNote"];
+
+  // Coerce form/backup values; the server normalizes again on publish.
+  function normalize(raw, base) {
+    const s = { ...base, ...(raw || {}) };
+    for (const f of FIELDS) if (f !== "currency") s[f] = num(s[f]);
+    for (const f of TEXT_FIELDS) s[f] = String(s[f] ?? "");
+    s.currency = String(s.currency || "CAD").toUpperCase().slice(0, 3);
+    s.showHidden = s.showHidden === true;
+    s.zones = Array.isArray(s.zones) && s.zones.length
+      ? s.zones.map((z) => ({ name: String(z.name ?? ""), multiplier: num(z.multiplier) }))
+      : base.zones;
+    return s;
+  }
+
+  let settings;
+  let saved; // JSON of the last published settings
+  try {
+    settings = (await api("/settings")).settings;
+  } catch (e) {
+    if (e.message !== "Not logged in") document.body.textContent = `Could not load settings: ${e.message}`;
+    return;
+  }
+  saved = JSON.stringify(settings);
+  document.body.classList.remove("loading");
+  const dirty = () => JSON.stringify(settings) !== saved;
+
+  const view = createCurrencyView({ toggle: $("curToggle"), getBase: () => settings.currency, onChange: () => render() });
+  const money = view.money;
+  const kg = (n) => `${round2(n)} kg`;
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.classList.remove("show"), 3500);
+  }
+
+  async function publish() {
+    const btn = $("publishBtn");
+    btn.disabled = true;
+    btn.textContent = "Publishing…";
+    try {
+      settings = (await api("/settings", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ settings }),
+      })).settings;
+      saved = JSON.stringify(settings);
+      renderSettings();
+      render();
+      toast("Published. Customers see the new rates now.");
+    } catch (e) {
+      toast(`Publish failed: ${e.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Publish to customer page";
+    }
+  }
+
+  function renderSettings() {
+    for (const f of [...FIELDS, ...TEXT_FIELDS]) $("s_" + f).value = settings[f];
+    $("s_showHidden").checked = settings.showHidden;
+    renderZones();
+  }
+
+  const zoneLabel = (z, i) => `${z.name || "Zone " + (i + 1)}${z.multiplier !== 1 ? ` (×${z.multiplier})` : ""}`;
+
+  function renderZones() {
+    const body = $("zoneRows");
+    body.innerHTML = "";
+    settings.zones.forEach((z, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="text" data-i="${i}" data-k="name"></td>
+        <td class="mult"><div class="affix"><span>×</span><input type="number" min="0" step="0.01" data-i="${i}" data-k="multiplier"></div></td>
+        <td><button type="button" class="link" data-del="${i}" title="Remove">Remove</button></td>`;
+      tr.querySelector('[data-k="name"]').value = z.name;
+      tr.querySelector('[data-k="multiplier"]').value = z.multiplier;
+      tr.querySelector("[data-del]").hidden = settings.zones.length === 1;
+      body.appendChild(tr);
+    });
+    const sel = $("zone");
+    const prev = sel.selectedIndex;
+    sel.innerHTML = "";
+    settings.zones.forEach((z, i) => sel.add(new Option(zoneLabel(z, i), i)));
+    sel.selectedIndex = Math.min(Math.max(prev, 0), settings.zones.length - 1);
+  }
+
+  function render() {
+    const input = {
+      weight: $("weight").value, qty: $("qty").value,
+      len: $("len").value, wid: $("wid").value, hei: $("hei").value,
+      zoneIndex: Number($("zone").value) || 0,
+      orderValue: $("orderValue").value,
+    };
+    const r = calculate(settings, input);
+
+    const base = settings.currency;
+    document.querySelectorAll(".baseCur").forEach((el) => { el.textContent = base; });
+    $("fxInfo").textContent = view.sync();
+
+    // Pricing equation (always in base currency: these are the admin's own numbers)
+    const hiddenPerKg = settings.perKg * settings.hiddenPct / 100;
+    $("eqBase").textContent = formatMoney(settings.perKg, base);
+    $("eqHidden").textContent = `${formatMoney(hiddenPerKg, base)} (${settings.hiddenPct}%)`;
+    $("eqCustomer").textContent = formatMoney(settings.perKg + hiddenPerKg, base);
+
+    const pill = $("publishState");
+    pill.className = `pill ${dirty() ? "warn" : "ok"}`;
+    pill.textContent = dirty() ? "Unpublished changes" : "Live on customer page";
+
+    const notice = $("notice");
+    notice.hidden = settings.perKg > 0 || settings.firstKg > 0;
+    notice.textContent = "Set a base rate per kg in Pricing.";
+
+    $("total").textContent = money(r.total);
+    $("totalSub").innerHTML = r.free
+      ? `<span class="free">Free shipping applied</span> (order ≥ ${money(settings.freeOver)})`
+      : `${kg(r.chargeable)} charged · ${r.qty} package${r.qty > 1 ? "s" : ""} · ${r.zone.name}`;
+
+    const rows = [
+      ["Actual weight / package", kg(r.actualPer)],
+    ];
+    if (r.volumetricPer) rows.push(["Box-size weight / package", kg(r.volumetricPer)]);
+    rows.push(["Charged weight / package", kg(r.chargeablePer)]);
+    if (r.qty > 1) rows.push(["Total charged weight", kg(r.chargeable)]);
+    rows.push(["Rate per kg", money(r.ratePerKg)]);
+    rows.push([r.zone.multiplier !== 1 ? `Weight charge (×${r.zone.multiplier})` : "Weight charge", money(r.weightCharge)]);
+    if (settings.showHidden && r.hiddenCost) {
+      rows.push(["↳ base", money(r.weightCharge - r.hiddenCost), "hidden-row"]);
+      rows.push([`↳ hidden cost (${settings.hiddenPct}%)`, money(r.hiddenCost), "hidden-row"]);
+    }
+    if (r.baseFee) rows.push(["Fee per shipment", money(r.baseFee)]);
+    if (r.fuel) rows.push([`Fuel surcharge (${settings.fuelPct}%)`, money(r.fuel)]);
+    if (r.handling) rows.push(["Handling", money(r.handling)]);
+    if (r.minApplied) rows.push(["Minimum charge applied", money(settings.minCharge)]);
+    if (r.free) rows.push(["Free shipping", "applied"]);
+    if (settings.taxPct) {
+      rows.push(["Subtotal", money(r.subtotal)]);
+      rows.push([`Tax (${settings.taxPct}%)`, money(r.tax)]);
+    }
+    rows.push(["Total", money(r.total), "sum"]);
+
+    const tb = $("breakdown");
+    tb.innerHTML = "";
+    for (const [k, v, cls] of rows) {
+      const tr = document.createElement("tr");
+      if (cls) tr.className = cls;
+      const a = document.createElement("td"); a.textContent = k;
+      const b = document.createElement("td"); b.className = "num"; b.textContent = v;
+      tr.append(a, b);
+      tb.appendChild(tr);
+    }
+  }
+
+  // Test-shipment inputs
+  ["weight", "qty", "len", "wid", "hei", "zone", "orderValue"].forEach((id) =>
+    $(id).addEventListener("input", render));
+
+  $("publishBtn").addEventListener("click", publish);
+  $("logoutBtn").addEventListener("click", async () => {
+    if (dirty() && !confirm("You have unpublished changes. Log out anyway?")) return;
+    localStorage.removeItem(TOKEN_KEY);
+    saved = JSON.stringify(settings); // suppress the leave-page warning
+    location.href = "./";
+  });
+  window.addEventListener("beforeunload", (e) => { if (dirty()) e.preventDefault(); });
+
+  // Settings inputs
+  for (const f of FIELDS) {
+    $("s_" + f).addEventListener("input", (e) => {
+      settings[f] = f === "currency" ? e.target.value.toUpperCase().slice(0, 3) || "CAD" : num(e.target.value);
+      render();
+    });
+  }
+  for (const f of TEXT_FIELDS) {
+    $("s_" + f).addEventListener("input", (e) => { settings[f] = e.target.value; render(); });
+  }
+  $("s_showHidden").addEventListener("change", (e) => {
+    settings.showHidden = e.target.checked;
+    render();
+  });
+
+  $("zoneRows").addEventListener("input", (e) => {
+    const i = e.target.dataset.i, k = e.target.dataset.k;
+    if (i === undefined) return;
+    settings.zones[i][k] = k === "name" ? e.target.value : num(e.target.value);
+    // Refresh only the dropdown label so the focused input keeps focus.
+    $("zone").options[i].textContent = zoneLabel(settings.zones[i], Number(i));
+    render();
+  });
+
+  $("zoneRows").addEventListener("click", (e) => {
+    const i = e.target.dataset.del;
+    if (i === undefined || settings.zones.length === 1) return;
+    settings.zones.splice(Number(i), 1);
+    renderZones(); render();
+  });
+
+  $("addZone").addEventListener("click", () => {
+    settings.zones.push({ name: `Zone ${settings.zones.length + 1}`, multiplier: 1 });
+    renderZones(); render();
+  });
+
+  $("resetBtn").addEventListener("click", async () => {
+    if (!confirm("Reset all settings to defaults? Nothing changes for customers until you publish.")) return;
+    try {
+      settings = (await api("/settings?defaults")).settings;
+      renderSettings(); render();
+    } catch (e) { toast(`Reset failed: ${e.message}`); }
+  });
+
+  $("exportBtn").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "shipping-admin-backup.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  $("importBtn").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      settings = normalize(JSON.parse(await file.text()), settings);
+      renderSettings(); render();
+      toast("Backup loaded. Review, then publish.");
+    } catch {
+      alert("Could not read that file. Expected a backup from this admin page.");
+    }
+    e.target.value = "";
+  });
+
+  renderSettings();
+  render();
+})();
+</script>
+</body>
+</html>
