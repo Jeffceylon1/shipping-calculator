@@ -1,9 +1,42 @@
-// Quote rendering and export for the customer page: one canvas design feeds print, PNG, PDF and share.
+// Quote document (waybill style) for the customer page: one canvas design feeds print, PNG, PDF and share.
 (function (global) {
   const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-  const C = { accent: "#1f5eff", ink: "#1d2433", muted: "#6b7385", line: "#e3e6ec", soft: "#f0f4ff", ok: "#067647" };
+  const MONO = '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+  const C = { accent: "#1f5eff", ink: "#1d2433", muted: "#667085", line: "#d0d5dd", band: "#f5f6f8", soft: "#f0f4ff", ok: "#067647" };
   const W = 1080;
-  const PAD = 72;
+  const PAD = 56;
+
+  // Code 128 bar patterns for symbol values 0–106 (1 = bar module, 0 = space). Table from JsBarcode.
+  const BARS = ("11011001100 11001101100 11001100110 10010011000 10010001100 10001001100 10011001000 10011000100 "
+    + "10001100100 11001001000 11001000100 11000100100 10110011100 10011011100 10011001110 10111001100 "
+    + "10011101100 10011100110 11001110010 11001011100 11001001110 11011100100 11001110100 11101101110 "
+    + "11101001100 11100101100 11100100110 11101100100 11100110100 11100110010 11011011000 11011000110 "
+    + "11000110110 10100011000 10001011000 10001000110 10110001000 10001101000 10001100010 11010001000 "
+    + "11000101000 11000100010 10110111000 10110001110 10001101110 10111011000 10111000110 10001110110 "
+    + "11101110110 11010001110 11000101110 11011101000 11011100010 11011101110 11101011000 11101000110 "
+    + "11100010110 11101101000 11101100010 11100011010 11101111010 11001000010 11110001010 10100110000 "
+    + "10100001100 10010110000 10010000110 10000101100 10000100110 10110010000 10110000100 10011010000 "
+    + "10011000010 10000110100 10000110010 11000010010 11001010000 11110111010 11000010100 10001111010 "
+    + "10100111100 10010111100 10010011110 10111100100 10011110100 10011110010 11110100100 11110010100 "
+    + "11110010010 11011011110 11011110110 11110110110 10101111000 10100011110 10001011110 10111101000 "
+    + "10111100010 11110101000 11110100010 10111011110 10111101110 11101011110 11110101110 11010000100 "
+    + "11010010000 11010011100 1100011101011").split(" ");
+  const START_B = 104;
+  const STOP = 106;
+
+  /** Code 128 set B module string for printable ASCII text. */
+  function code128B(text) {
+    const values = [START_B];
+    let checksum = START_B;
+    [...text].forEach((ch, i) => {
+      const v = ch.charCodeAt(0) - 32;
+      if (v < 0 || v > 95) throw new Error(`Barcode cannot encode "${ch}"`);
+      values.push(v);
+      checksum += v * (i + 1);
+    });
+    values.push(checksum % 103, STOP);
+    return values.map((v) => BARS[v]).join("");
+  }
 
   function wrap(ctx, text, maxWidth) {
     const lines = [];
@@ -19,105 +52,180 @@
     return lines;
   }
 
-  function box(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
-    else ctx.rect(x, y, w, h);
-    ctx.fill();
+  /** Set the largest font (down to min) at which text fits maxWidth. */
+  function fitFont(ctx, text, weight, size, min, family, maxWidth) {
+    for (; size > min; size -= 1) {
+      ctx.font = `${weight} ${size}px ${family}`;
+      if (ctx.measureText(text).width <= maxWidth) return;
+    }
+    ctx.font = `${weight} ${min}px ${family}`;
+  }
+
+  function fieldLabel(ctx, text, x, y, color = C.muted) {
+    ctx.font = `700 18px ${FONT}`;
+    ctx.fillStyle = color;
+    ctx.letterSpacing = "2px";
+    ctx.fillText(text.toUpperCase(), x, y);
+    ctx.letterSpacing = "0px";
   }
 
   /**
-   * q: { brand, route, id, dateText, weightText, chargedText?, zone?, totalLabel, primary, secondary?,
-   *      free, fxLine?, note?, contact? }
+   * q: { brand, route, from, to, id, dateText, weightText, chargedText, lines: [[label, amount]], amountCur,
+   *      totalLabel, primary, secondary?, free, fxLine?, note?, contact? }
    */
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2400;
+    draft.height = 3200;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
     x.textBaseline = "alphabetic";
+    const inner = W - PAD * 2;
 
-    // Header band
-    const headH = 230;
+    // Header band: business left, quote number right
+    const headH = 176;
     x.fillStyle = C.accent;
     x.fillRect(0, 0, W, headH);
+    x.textAlign = "left";
     x.fillStyle = "#fff";
-    x.font = `700 54px ${FONT}`;
-    x.fillText(q.brand || "Shipping Quote", PAD, 112);
+    fitFont(x, q.brand || "Shipping Quote", 700, 46, 28, FONT, inner * 0.58);
+    x.fillText(q.brand || "Shipping Quote", PAD, 84);
     x.globalAlpha = 0.85;
-    x.font = `400 32px ${FONT}`;
-    x.fillText(q.brand ? `Shipping quote · ${q.route}` : q.route, PAD, 168);
+    x.font = `400 26px ${FONT}`;
+    x.fillText(q.brand ? `Shipping quote · ${q.route}` : q.route, PAD, 128);
     x.globalAlpha = 1;
+    x.textAlign = "right";
+    fieldLabel(x, "Quote no.", W - PAD, 76, "rgba(255,255,255,.8)");
+    x.fillStyle = "#fff";
+    x.font = `700 30px ${MONO}`;
+    x.fillText(q.id, W - PAD, 120);
+    x.textAlign = "left";
 
-    // Detail rows
-    let y = headH + 84;
-    const row = (label, value) => {
-      x.textAlign = "left";
-      x.font = `400 32px ${FONT}`;
-      x.fillStyle = C.muted;
-      x.fillText(label, PAD, y);
-      x.textAlign = "right";
-      x.font = `600 34px ${FONT}`;
+    // Barcode of the quote number
+    let y = headH + 40;
+    const module = 3;
+    const bits = code128B(q.id);
+    const bx = Math.round((W - bits.length * module) / 2);
+    x.fillStyle = C.ink;
+    for (let i = 0; i < bits.length; i++) if (bits[i] === "1") x.fillRect(bx + i * module, y, module, 104);
+    y += 104 + 34;
+    x.textAlign = "center";
+    x.font = `500 24px ${MONO}`;
+    x.letterSpacing = "6px";
+    x.fillText(q.id, W / 2, y);
+    x.letterSpacing = "0px";
+    x.textAlign = "left";
+    y += 34;
+
+    // Shipment details grid (waybill boxes)
+    const cellH = 112;
+    const rows = [
+      [["From", q.from], ["To", q.to]],
+      [["Date", q.dateText], ["Parcel weight", q.weightText], ["Charged weight", q.chargedText]],
+    ];
+    const gridTop = y;
+    x.strokeStyle = C.ink;
+    for (const row of rows) {
+      const cw = inner / row.length;
+      row.forEach(([label, value], i) => {
+        const cx = PAD + i * cw;
+        fieldLabel(x, label, cx + 18, y + 36);
+        x.fillStyle = C.ink;
+        fitFont(x, value, 700, 32, 20, FONT, cw - 36);
+        x.fillText(value, cx + 18, y + 84);
+        if (i) { x.lineWidth = 2; x.beginPath(); x.moveTo(cx, y); x.lineTo(cx, y + cellH); x.stroke(); }
+      });
+      y += cellH;
+      x.lineWidth = 2;
+      x.beginPath(); x.moveTo(PAD, y); x.lineTo(W - PAD, y); x.stroke();
+    }
+    x.lineWidth = 3;
+    x.strokeRect(PAD, gridTop, inner, y - gridTop);
+
+    // Charges table
+    y += 36;
+    x.fillStyle = C.band;
+    x.fillRect(PAD, y, inner, 52);
+    fieldLabel(x, "Description", PAD + 18, y + 33);
+    x.textAlign = "right";
+    fieldLabel(x, `Amount (${q.amountCur})`, W - PAD - 18, y + 33);
+    x.textAlign = "left";
+    y += 52;
+    for (const [label, amount] of q.lines) {
       x.fillStyle = C.ink;
-      x.fillText(value, W - PAD, y);
-      y += 72;
-    };
-    row("Quote no.", q.id);
-    row("Date", q.dateText);
-    row("Parcel weight", q.weightText);
-    if (q.chargedText) row("Charged weight", q.chargedText);
-    if (q.zone) row("Destination", q.zone);
+      x.font = `400 28px ${FONT}`;
+      x.fillText(label, PAD + 18, y + 42);
+      x.textAlign = "right";
+      x.font = `600 28px ${FONT}`;
+      x.fillText(amount, W - PAD - 18, y + 42);
+      x.textAlign = "left";
+      y += 64;
+      x.fillStyle = C.line;
+      x.fillRect(PAD, y - 1, inner, 2);
+    }
 
     // Total
-    y += 8;
-    const boxH = q.secondary || q.free ? 300 : 244;
-    x.fillStyle = C.soft;
-    box(x, PAD, y, W - PAD * 2, boxH, 28);
-    x.textAlign = "center";
-    x.fillStyle = C.muted;
-    x.font = `400 32px ${FONT}`;
-    x.fillText(q.totalLabel, W / 2, y + 72);
+    const totalH = q.secondary ? 148 : 108;
     x.fillStyle = C.ink;
-    x.font = `700 96px ${FONT}`;
-    x.fillText(q.primary, W / 2, y + 182);
-    if (q.free) {
-      x.fillStyle = C.ok;
-      x.font = `600 34px ${FONT}`;
-      x.fillText("Free shipping applied", W / 2, y + 250);
-    } else if (q.secondary) {
-      x.fillStyle = C.muted;
-      x.font = `400 34px ${FONT}`;
-      x.fillText(q.secondary, W / 2, y + 250);
-    }
-    y += boxH + 64;
-
-    // Exchange rate and note
-    x.textAlign = "left";
-    x.fillStyle = C.muted;
-    if (q.fxLine) {
+    x.fillRect(PAD, y, inner, totalH);
+    fieldLabel(x, q.totalLabel, PAD + 24, y + 64, "rgba(255,255,255,.85)");
+    x.textAlign = "right";
+    x.fillStyle = "#fff";
+    fitFont(x, q.primary, 800, 54, 30, FONT, inner * 0.62);
+    x.fillText(q.primary, W - PAD - 24, y + 72);
+    if (q.secondary) {
+      x.globalAlpha = 0.85;
       x.font = `400 26px ${FONT}`;
-      for (const line of wrap(x, `Exchange rate: ${q.fxLine}`, W - PAD * 2)) { x.fillText(line, PAD, y); y += 38; }
-      y += 14;
+      x.fillText(q.secondary, W - PAD - 24, y + 118);
+      x.globalAlpha = 1;
     }
-    if (q.note) {
-      x.font = `400 28px ${FONT}`;
-      for (const line of wrap(x, q.note, W - PAD * 2)) { x.fillText(line, PAD, y); y += 40; }
-      y += 14;
+    x.textAlign = "left";
+    y += totalH;
+
+    if (q.free) {
+      y += 44;
+      x.fillStyle = C.ok;
+      x.font = `700 26px ${FONT}`;
+      x.fillText("Free shipping applied", PAD, y);
+    }
+    if (q.fxLine) {
+      y += 42;
+      x.fillStyle = C.muted;
+      x.font = `400 22px ${FONT}`;
+      x.fillText(`Exchange rate: ${q.fxLine}`, PAD, y);
     }
 
-    // Footer
-    if (q.contact) {
-      y += 10;
-      x.fillStyle = C.line;
-      x.fillRect(PAD, y, W - PAD * 2, 2);
-      y += 62;
+    // Notes
+    if (q.note) {
+      y += 44;
+      x.font = `400 24px ${FONT}`;
+      const noteLines = wrap(x, q.note, inner - 36);
+      const boxH = 58 + noteLines.length * 34 + 12;
+      x.strokeStyle = C.line;
+      x.lineWidth = 2;
+      x.strokeRect(PAD, y, inner, boxH);
+      fieldLabel(x, "Notes", PAD + 18, y + 36);
       x.fillStyle = C.ink;
-      x.font = `600 32px ${FONT}`;
-      for (const line of wrap(x, q.contact, W - PAD * 2)) { x.fillText(line, PAD, y); y += 44; }
+      x.font = `400 24px ${FONT}`;
+      noteLines.forEach((line, i) => x.fillText(line, PAD + 18, y + 72 + i * 34));
+      y += boxH;
     }
+
+    // Footer band
     y += 40;
+    x.font = `600 28px ${FONT}`;
+    const contactLines = q.contact ? wrap(x, q.contact, inner) : [];
+    const footH = 72 + contactLines.length * 40 + (contactLines.length ? 8 : 0);
+    x.fillStyle = C.band;
+    x.fillRect(0, y, W, footH);
+    let fy = y + 46;
+    x.fillStyle = C.ink;
+    for (const line of contactLines) { x.fillText(line, PAD, fy); fy += 40; }
+    x.fillStyle = C.muted;
+    x.font = `400 22px ${FONT}`;
+    x.fillText("Thank you for your business.", PAD, fy);
+    y += footH;
 
     const out = document.createElement("canvas");
     out.width = W;
@@ -126,8 +234,11 @@
     return out;
   }
 
-  const toBlob = (canvas, type, quality) =>
-    new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), type, quality));
+  const toBlob = (canvas, type, quality) => {
+    const { promise, resolve, reject } = Promise.withResolvers();
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob failed"))), type, quality);
+    return promise;
+  };
 
   /** Single-page A4 PDF embedding the quote as a JPEG. No dependencies. */
   async function toPdfBlob(canvas) {
@@ -178,21 +289,26 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
   }
 
-  function shareText(q, pageUrl) {
+  /** One-line caption sent alongside the quote image. */
+  const caption = (q) => `${q.brand ? q.brand + " – " : ""}Shipping quote ${q.id}: ${q.primary}${q.secondary ? ` (${q.secondary})` : ""}`;
+
+  /** Full plain-text quote (Copy text / Email). */
+  function text(q) {
     const lines = [
-      `${q.brand ? q.brand + " – " : ""}Shipping quote (${q.route})`,
-      `Quote no.: ${q.id}`,
-      `Parcel weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
+      `${q.brand ? q.brand + " – " : ""}SHIPPING QUOTE ${q.id}`,
+      `${q.from} → ${q.to}`,
+      `Date: ${q.dateText}`,
+      `Parcel weight: ${q.weightText}${q.chargedText !== q.weightText ? ` (charged as ${q.chargedText})` : ""}`,
+      "",
+      ...q.lines.map(([label, amount]) => `${label}: ${amount}`),
+      `${q.totalLabel.toUpperCase()}: ${q.primary}${q.free ? " (free shipping)" : ""}`,
     ];
-    if (q.zone) lines.push(`Destination: ${q.zone}`);
-    lines.push(`${q.totalLabel}: ${q.primary}${q.free ? " (free shipping)" : ""}`);
     if (q.secondary) lines.push(q.secondary);
     if (q.fxLine) lines.push(`Exchange rate: ${q.fxLine}`);
     if (q.note) lines.push("", q.note);
     if (q.contact) lines.push("", q.contact);
-    if (pageUrl) lines.push("", `Get a quote: ${pageUrl}`);
     return lines.join("\n");
   }
 
-  global.Quote = { drawQuote, toBlob, toPdfBlob, download, shareText };
+  global.Quote = { drawQuote, toBlob, toPdfBlob, download, caption, text };
 })(window);

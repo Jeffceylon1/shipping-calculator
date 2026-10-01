@@ -67,11 +67,19 @@
   .sheet h2 { margin:0; font-size:18px; }
   .sheet p { margin:0 0 16px; font-size:13px; color:var(--muted); }
   .icon-btn { border:none; background:none; padding:6px; cursor:pointer; color:var(--muted); border-radius:8px; }
-  .share-grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:14px 8px; }
-  .share-grid button[hidden] { display:none; }
-  .share-grid button { font:inherit; font-size:12px; border:none; background:none; cursor:pointer; color:var(--ink); display:flex; flex-direction:column; align-items:center; gap:6px; padding:0; }
-  .share-grid i { width:54px; height:54px; border-radius:16px; display:grid; place-items:center; color:#fff; }
-  .share-grid i svg { width:26px; height:26px; }
+  @media (min-width: 521px) { #shareSheet { width:min(520px, calc(100vw - 24px)); } }
+  .quote-preview { max-height:min(46vh, 520px); max-height:min(46dvh, 520px); overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--bg); }
+  .quote-preview img { display:block; width:100%; height:auto; }
+  .send-main { width:100%; margin-top:14px; display:flex; align-items:center; justify-content:center; gap:10px; font:inherit; font-size:17px; font-weight:700;
+               padding:14px; border:none; border-radius:12px; background:var(--accent); color:#fff; cursor:pointer; }
+  .send-main.whatsapp { background:#25D366; }
+  .send-main svg { width:22px; height:22px; }
+  .send-hint { margin:8px 0 14px !important; text-align:center; }
+  .send-more { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .send-more button { font:inherit; font-size:12px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 4px;
+                      border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); cursor:pointer; }
+  .send-more button[hidden] { display:none; }
+  .send-more svg { width:20px; height:20px; }
 
   .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translate(-50%, 20px); opacity:0; pointer-events:none; transition:.2s;
            background:#1d2433; color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; z-index:10; }
@@ -188,16 +196,18 @@
       <h2 id="shareTitle">Send quote</h2>
       <button type="button" class="icon-btn" id="shareClose" aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </header>
-    <p>Choose an app to send this quote.</p>
-    <div class="share-grid">
-      <button type="button" data-share="whatsapp"><i style="background:#25D366"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></i>WhatsApp</button>
-      <button type="button" data-share="viber"><i style="background:#7360F2"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></i>Viber</button>
-      <button type="button" data-share="sms"><i style="background:#34C759"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></i>Messages</button>
-      <button type="button" data-share="email"><i style="background:#1f5eff"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></i>Email</button>
-      <button type="button" data-share="telegram"><i style="background:#229ED9"><svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></i>Telegram</button>
-      <button type="button" data-share="copyText"><i style="background:#475467"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></i>Copy text</button>
-      <button type="button" data-share="copyImage"><i style="background:#475467"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></i>Copy image</button>
-      <button type="button" data-share="native"><i style="background:#1d2433"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></i>More apps</button>
+    <div class="quote-preview"><img id="quotePreview" alt="Quote preview"></div>
+    <button type="button" class="send-main" id="sendMain">
+      <svg id="sendIconShare" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      <svg id="sendIconWhatsApp" viewBox="0 0 24 24" hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      <span id="sendMainLabel">Send quote image</span>
+    </button>
+    <p class="send-hint" id="sendHint">Choose WhatsApp, Messages, Viber, Messenger or any app.</p>
+    <div class="send-more">
+      <button type="button" data-send="copyImage"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy image</button>
+      <button type="button" data-send="saveImage"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Save image</button>
+      <button type="button" data-send="savePdf"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Save PDF</button>
+      <button type="button" data-send="copyText"><svg viewBox="0 0 24 24"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>Copy text</button>
     </div>
   </div>
 </dialog>
@@ -277,7 +287,6 @@
   }
   const { num, round2, calculate, formatMoney, createCurrencyView } = Shipping;
   const view = createCurrencyView({ toggle: $("curToggle"), getBase: () => rates.currency, onChange: render });
-  const pageUrl = /^https?:/.test(location.protocol) ? location.href.split("#")[0] : "";
 
   // Static page setup from published rates
   if (rates.businessName) { $("title").textContent = rates.businessName; document.title = `${rates.businessName}: Shipping to Sri Lanka`; }
@@ -342,25 +351,41 @@
     if (!inp.weight) return null;
     const r = calculate(rates, inp);
     const base = rates.currency;
+    const money = (n) => formatMoney(n, base);
     const fx = view.fx();
-    const baseTotal = formatMoney(r.total, base);
+    const baseTotal = money(r.total);
     const lkrTotal = fx ? formatMoney(r.total * fx.rate, "LKR") : null;
     const showLkr = view.display() === "LKR" && lkrTotal;
+
+    // Line items in the billing currency
+    const lines = [[`Shipping charge (${kgText(r.chargeable)})`, money(r.weightCharge)]];
+    if (r.baseFee) lines.push(["Fee per shipment", money(r.baseFee)]);
+    if (r.fuel) lines.push([`Fuel surcharge (${rates.fuelPct}%)`, money(r.fuel)]);
+    if (r.handling) lines.push(["Handling", money(r.handling)]);
+    const beforeMin = r.baseFee + r.weightCharge + r.fuel + r.handling;
+    if (r.minApplied) lines.push(["Minimum charge adjustment", money(rates.minCharge - beforeMin)]);
+    if (r.free) lines.push(["Free shipping", `−${money(r.minApplied ? rates.minCharge : beforeMin)}`]);
+    if (r.tax) lines.push([`Tax (${rates.taxPct}%)`, money(r.tax)]);
+
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
+    const when = { dateStyle: "medium", timeStyle: "short" };
     return {
       brand: rates.businessName || "",
       route: ROUTE,
+      from: "Canada",
+      to: rates.zones.length > 1 ? `Sri Lanka · ${r.zone.name}` : "Sri Lanka",
       id: `Q-${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`,
-      dateText: now.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }),
+      dateText: now.toLocaleString(undefined, when),
       weightText: kgText(inp.weight),
-      chargedText: r.chargeablePer !== inp.weight ? kgText(r.chargeablePer) : "",
-      zone: rates.zones.length > 1 ? r.zone.name : "",
-      totalLabel,
+      chargedText: kgText(r.chargeablePer),
+      lines,
+      amountCur: base,
+      totalLabel: rates.taxPct > 0 ? "Total incl. tax" : "Total",
       primary: showLkr ? lkrTotal : baseTotal,
       secondary: r.free ? "" : showLkr ? `Billed in ${base}: ${baseTotal}` : lkrTotal ? `≈ ${lkrTotal}` : "",
       free: r.free,
-      fxLine: fx ? `1 ${base} = ${fx.rate.toFixed(2)} LKR (${new Date(fx.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })})` : "",
+      fxLine: fx ? `1 ${base} = ${fx.rate.toFixed(2)} LKR (${new Date(fx.at).toLocaleString(undefined, when)})` : "",
       note: rates.quoteNote || "",
       contact: rates.contact || "",
     };
@@ -404,42 +429,70 @@
     toast("PDF saved");
   }));
 
-  // Send
+  // Send: preview the quote image, then share it as an image (not a text message).
   const sheet = $("shareSheet");
   const canCopyImage = !!(navigator.clipboard && window.ClipboardItem);
-  sheet.querySelector('[data-share="copyImage"]').hidden = !canCopyImage;
-  sheet.querySelector('[data-share="native"]').hidden = !navigator.share;
-  $("shareBtn").addEventListener("click", () => sheet.showModal());
+  const canShareFiles = !!(navigator.canShare && navigator.canShare({ files: [new File([""], "quote.png", { type: "image/png" })] }));
+  let sending = null; // { q, canvas, blob, file, previewUrl } prepared when the sheet opens
+
+  // Phones (and browsers that share files): the system share menu sends the image to WhatsApp, Messages, Viber, …
+  // Elsewhere: copy the image and open WhatsApp so it can be pasted into the chat.
+  $("sendMainLabel").textContent = canShareFiles ? "Send quote image" : "Send on WhatsApp";
+  $("sendMain").classList.toggle("whatsapp", !canShareFiles);
+  $("sendIconShare").hidden = !canShareFiles;
+  $("sendIconWhatsApp").hidden = canShareFiles;
+  $("sendHint").textContent = canShareFiles
+    ? "Choose WhatsApp, Messages, Viber, Messenger or any app."
+    : canCopyImage
+      ? "The quote image is copied for you. In WhatsApp, open the chat and paste it (Ctrl+V or ⌘V)."
+      : "The quote image is saved for you. In WhatsApp, attach it to the chat.";
+  sheet.querySelector('[data-send="copyImage"]').hidden = !canCopyImage;
+
+  $("shareBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
+    const blob = await Quote.toBlob(canvas, "image/png");
+    if (sending) URL.revokeObjectURL(sending.previewUrl);
+    sending = { q, canvas, blob, file: new File([blob], `${q.id}.png`, { type: "image/png" }), previewUrl: URL.createObjectURL(blob) };
+    $("quotePreview").src = sending.previewUrl;
+    sheet.showModal();
+  }));
   $("shareClose").addEventListener("click", () => sheet.close());
   sheet.addEventListener("click", (e) => { if (e.target === sheet) sheet.close(); });
 
-  const open = (url) => { window.open(url, "_blank", "noopener"); };
-  const SHARE = {
-    whatsapp: (text) => open(`https://wa.me/?text=${encodeURIComponent(text)}`),
-    viber: (text) => { location.href = `viber://forward?text=${encodeURIComponent(text)}`; },
-    sms: (text) => { location.href = `sms:?&body=${encodeURIComponent(text)}`; },
-    email: (text, q) => { location.href = `mailto:?subject=${encodeURIComponent(`Shipping quote ${q.id}`)}&body=${encodeURIComponent(text)}`; },
-    telegram: (text) => open(`https://t.me/share/url?url=${encodeURIComponent(pageUrl || " ")}&text=${encodeURIComponent(text)}`),
-    copyText: async (text) => { await navigator.clipboard.writeText(text); toast("Quote copied. Paste it into any app."); },
-    copyImage: async (text, q, canvas) => {
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": Quote.toBlob(canvas, "image/png") })]);
-      toast("Image copied. Paste it into any chat.");
-    },
-    native: async (text, q, canvas) => {
-      const file = new File([await Quote.toBlob(canvas, "image/png")], `${q.id}.png`, { type: "image/png" });
-      const data = navigator.canShare && navigator.canShare({ files: [file] })
-        ? { files: [file], text, title: `Shipping quote ${q.id}` }
-        : { text, title: `Shipping quote ${q.id}` };
-      await navigator.share(data);
-    },
-  };
-  sheet.querySelector(".share-grid").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-share]");
-    if (!btn) return;
-    withQuote(async (q, canvas) => {
-      await SHARE[btn.dataset.share](Quote.shareText(q, pageUrl), q, canvas);
-      sheet.close();
-    });
+  const copyImage = () => navigator.clipboard.write([new ClipboardItem({ "image/png": sending.blob })]);
+
+  $("sendMain").addEventListener("click", async () => {
+    const { q, blob, file } = sending;
+    try {
+      if (canShareFiles) {
+        await navigator.share({ files: [file], text: Quote.caption(q), title: `Shipping quote ${q.id}` });
+        sheet.close();
+        return;
+      }
+      if (canCopyImage) {
+        await copyImage();
+        toast("Quote image copied. Paste it into the WhatsApp chat.");
+      } else {
+        Quote.download(blob, `${q.id}.png`);
+        toast("Quote image saved. Attach it in WhatsApp.");
+      }
+      window.open(`https://wa.me/?text=${encodeURIComponent(Quote.caption(q))}`, "_blank", "noopener");
+    } catch (e) {
+      if (e.name !== "AbortError") toast("Could not send. Try Save image instead.");
+    }
+  });
+
+  sheet.querySelector(".send-more").addEventListener("click", async (e) => {
+    const action = e.target.closest("[data-send]")?.dataset.send;
+    if (!action) return;
+    const { q, canvas, blob } = sending;
+    try {
+      if (action === "copyImage") { await copyImage(); toast("Image copied. Paste it into any chat."); }
+      if (action === "saveImage") { Quote.download(blob, `${q.id}.png`); toast("Image saved"); }
+      if (action === "savePdf") { Quote.download(await Quote.toPdfBlob(canvas), `${q.id}.pdf`); toast("PDF saved"); }
+      if (action === "copyText") { await navigator.clipboard.writeText(Quote.text(q)); toast("Quote text copied"); }
+    } catch {
+      toast("Something went wrong. Please try again.");
+    }
   });
 
   window.addEventListener("resize", fitTotal);
