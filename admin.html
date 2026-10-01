@@ -10,13 +10,13 @@
   :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2433; --muted:#6b7385; --accent:#1f5eff; --accent-soft:#f0f4ff; --line:#e3e6ec;
           --warn:#b54708; --warn-soft:#fffaeb; --ok:#067647; --ok-soft:#ecfdf3; --danger:#b42318; }
   * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  body { margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); -webkit-text-size-adjust:100%; }
 
   [hidden] { display:none !important; }
 
   /* Top bar */
   .topbar { position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line); }
-  .topbar-inner { max-width:1240px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .topbar-inner { max-width:1240px; margin:0 auto; padding:14px max(20px, env(safe-area-inset-right)) 14px max(20px, env(safe-area-inset-left)); display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
   .brand { margin-right:auto; }
   .brand h1 { margin:0; font-size:18px; }
   .brand p { margin:0; font-size:13px; color:var(--muted); }
@@ -25,6 +25,7 @@
   .pill.ok { background:var(--ok-soft); color:var(--ok); }
   .pill.warn { background:var(--warn-soft); color:var(--warn); }
   .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .publish-bar { display:flex; gap:12px; align-items:center; }
 
   button, .btn { font:inherit; font-weight:500; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
   button:hover, .btn:hover { border-color:#c9ced8; }
@@ -36,8 +37,8 @@
   /* Layout: settings left, live preview right */
   .layout { max-width:1240px; margin:20px auto 40px; padding:0 20px; display:grid; grid-template-columns:minmax(0, 1.55fr) minmax(340px, 1fr); gap:20px; align-items:start; }
   .col { display:flex; flex-direction:column; gap:16px; min-width:0; }
-  .preview { position:sticky; top:84px; }
-  @media (max-width: 960px) { .layout { grid-template-columns:1fr; } .preview { position:static; } }
+  .preview { position:sticky; top:84px; max-height:calc(100vh - 100px); overflow-y:auto; border-radius:12px; }
+  @media (max-width: 960px) { .layout { grid-template-columns:1fr; } .preview { position:static; max-height:none; overflow:visible; } }
 
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; }
   .card-head { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin-bottom:14px; }
@@ -88,7 +89,7 @@
   .seg[hidden] { display:none; }
   .seg button { border:none; border-radius:0; padding:5px 14px; font-weight:600; }
   .seg button.on { background:var(--accent); color:#fff; }
-  .total { font-size:32px; font-weight:700; margin:6px 0 0; font-variant-numeric:tabular-nums; }
+  .total { font-size:clamp(22px, 7.5vw, 32px); font-weight:700; margin:6px 0 0; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .muted { color:var(--muted); font-size:12px; }
   .free { color:var(--ok); font-weight:600; }
   .notice { padding:10px 12px; border-radius:8px; background:var(--warn-soft); color:var(--warn); border:1px solid #fedf89; font-size:13px; margin-top:12px; }
@@ -106,6 +107,42 @@
            background:#1d2433; color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; z-index:10; }
   .toast.show { opacity:1; transform:translate(-50%, 0); }
   body.loading > * { visibility:hidden; }
+
+  /* Touch screens: 16px inputs stop iOS zoom-on-focus; bigger tap targets */
+  @media (pointer: coarse) {
+    input, select, textarea { font-size:16px; }
+    button, .btn { min-height:40px; }
+    button.link { padding:8px 10px; }
+    .check input { width:20px; height:20px; }
+    details.box summary { padding:6px 0; }
+  }
+  /* Phones and short (landscape) screens: compact header, Publish pinned to the bottom */
+  @media (max-width: 720px), (max-height: 500px) {
+    input, select, textarea { font-size:16px; }
+    body { padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
+    .topbar { position:static; }
+    .topbar-inner { padding:12px 14px; gap:10px; }
+    .brand p { display:none; }
+    .toolbar { width:100%; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .toolbar::-webkit-scrollbar { display:none; }
+    .toolbar > * { flex:none; white-space:nowrap; }
+    .publish-bar { position:fixed; z-index:6; left:0; right:0; bottom:0; justify-content:space-between; background:var(--card);
+                   border-top:1px solid var(--line); box-shadow:0 -6px 20px rgba(29,36,51,.08);
+                   padding:10px max(14px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+    .publish-bar .primary { padding:10px 18px; }
+    .publish-bar .long { display:none; }
+    .layout { margin:12px auto 24px; padding:0 max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left)); gap:12px; }
+    .col { gap:12px; }
+    .card { padding:16px; }
+    .card-head { flex-wrap:wrap; }
+    .zones td.mult { width:104px; }
+    .danger-zone { flex-wrap:wrap; }
+    .toast { bottom:calc(88px + env(safe-area-inset-bottom)); }
+  }
+  @media (max-width: 360px) {
+    .fields, .fields.two { grid-template-columns:1fr; }
+    .publish-bar .pill { font-size:11px; padding:4px 8px; }
+  }
 </style>
 </head>
 <body class="loading">
@@ -115,14 +152,16 @@
       <h1>Shipping Admin</h1>
       <p>Canada → Sri Lanka · changes go live when you publish</p>
     </div>
-    <span id="publishState" class="pill"></span>
     <div class="toolbar">
-      <a class="btn" href="./" target="_blank" rel="noopener">Open customer page ↗</a>
+      <a class="btn" href="./" target="_blank" rel="noopener">Customer page ↗</a>
       <button id="exportBtn" type="button" title="Download a backup of all admin settings">Backup</button>
       <button id="importBtn" type="button" title="Restore admin settings from a backup file">Restore</button>
       <input id="importFile" type="file" accept="application/json" hidden>
       <button id="logoutBtn" type="button">Log out</button>
-      <button id="publishBtn" type="button" class="primary">Publish to customer page</button>
+    </div>
+    <div class="publish-bar">
+      <span id="publishState" class="pill"></span>
+      <button id="publishBtn" type="button" class="primary">Publish<span class="long"> to customer page</span></button>
     </div>
   </div>
 </header>
@@ -351,6 +390,7 @@
 
   async function publish() {
     const btn = $("publishBtn");
+    const label = btn.innerHTML;
     btn.disabled = true;
     btn.textContent = "Publishing…";
     try {
@@ -367,7 +407,7 @@
       toast(`Publish failed: ${e.message}`);
     } finally {
       btn.disabled = false;
-      btn.textContent = "Publish to customer page";
+      btn.innerHTML = label;
     }
   }
 
