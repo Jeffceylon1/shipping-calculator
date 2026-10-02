@@ -70,13 +70,14 @@
   }
 
   /**
-   * q: { brand, route, from, to, id, dateText, weightText, chargedText, lines: [[label, amount]], amountCur,
-   *      totalLabel, primary, secondary?, free, fxLine?, note?, contact? }
+   * q: { brand, route, from, to, id, dateText, countText, weightText, chargedText?,
+   *      items: [{ name, unit, qty, weight, amount }], itemsTotal: { qty, weight, amount }, extras: [[label, amount]],
+   *      amountCur, totalLabel, primary, secondary?, free, fxLine?, note?, contact? }
    */
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 3200;
+    draft.height = 2200 + (q.items.length + q.extras.length) * 64;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -122,7 +123,8 @@
     const cellH = 112;
     const rows = [
       [["From", q.from], ["To", q.to]],
-      [["Date", q.dateText], ["Parcel weight", q.weightText], ["Charged weight", q.chargedText]],
+      [["Date", q.dateText], ["Products", q.countText], ["Total weight", q.weightText],
+        ...(q.chargedText ? [["Charged weight", q.chargedText]] : [])],
     ];
     const gridTop = y;
     x.strokeStyle = C.ink;
@@ -143,27 +145,60 @@
     x.lineWidth = 3;
     x.strokeRect(PAD, gridTop, inner, y - gridTop);
 
-    // Charges table
+    // Products table: Product | Weight (each) | Qty | Total weight | Amount
+    const col = { name: PAD + 18, unit: PAD + 560, qty: PAD + 625, weight: PAD + 790, amount: W - PAD - 18 };
+    const cell = (text, xPos, align, weight = 400) => {
+      x.textAlign = align;
+      x.font = `${weight} 26px ${FONT}`;
+      x.fillText(text, xPos, y + 40);
+    };
     y += 36;
     x.fillStyle = C.band;
     x.fillRect(PAD, y, inner, 52);
-    fieldLabel(x, "Description", PAD + 18, y + 33);
+    fieldLabel(x, "Product", col.name, y + 33);
     x.textAlign = "right";
-    fieldLabel(x, `Amount (${q.amountCur})`, W - PAD - 18, y + 33);
+    fieldLabel(x, "Weight", col.unit, y + 33);
+    x.textAlign = "center";
+    fieldLabel(x, "Qty", col.qty, y + 33);
+    x.textAlign = "right";
+    fieldLabel(x, "Total wt", col.weight, y + 33);
+    fieldLabel(x, `Amount (${q.amountCur})`, col.amount, y + 33);
     x.textAlign = "left";
     y += 52;
-    for (const [label, amount] of q.lines) {
+    const rule = (color = C.line) => { x.fillStyle = color; x.fillRect(PAD, y - 1, inner, 2); };
+    for (const it of q.items) {
       x.fillStyle = C.ink;
-      x.font = `400 28px ${FONT}`;
-      x.fillText(label, PAD + 18, y + 42);
-      x.textAlign = "right";
-      x.font = `600 28px ${FONT}`;
-      x.fillText(amount, W - PAD - 18, y + 42);
-      x.textAlign = "left";
-      y += 64;
-      x.fillStyle = C.line;
-      x.fillRect(PAD, y - 1, inner, 2);
+      x.font = `600 26px ${FONT}`;
+      let name = it.name;
+      if (x.measureText(name).width > 360) {
+        while (name.length > 1 && x.measureText(`${name}…`).width > 360) name = name.slice(0, -1);
+        name = `${name.trimEnd()}…`;
+      }
+      cell(name, col.name, "left", 600);
+      cell(it.unit, col.unit, "right");
+      cell(it.qty, col.qty, "center");
+      cell(it.weight, col.weight, "right");
+      cell(it.amount, col.amount, "right", 600);
+      y += 60;
+      rule();
     }
+    // Products total row
+    x.fillStyle = C.ink;
+    cell(q.extras.length ? "Subtotal" : "All products", col.name, "left", 700);
+    cell(q.itemsTotal.qty, col.qty, "center", 700);
+    cell(q.itemsTotal.weight, col.weight, "right", 700);
+    cell(q.itemsTotal.amount, col.amount, "right", 700);
+    y += 60;
+    rule(C.ink);
+    // Shipment-level charges (fees, tax, free shipping)
+    for (const [label, amount] of q.extras) {
+      x.fillStyle = C.ink;
+      cell(label, col.name, "left");
+      cell(amount, col.amount, "right", 600);
+      y += 60;
+      rule();
+    }
+    x.textAlign = "left";
 
     // Total
     const totalH = q.secondary ? 148 : 108;
@@ -290,7 +325,8 @@
   }
 
   /** One-line caption sent alongside the quote image. */
-  const caption = (q) => `${q.brand ? q.brand + " – " : ""}Shipping quote ${q.id}: ${q.primary}${q.secondary ? ` (${q.secondary})` : ""}`;
+  const caption = (q) => `${q.brand ? q.brand + " – " : ""}Shipping quote ${q.id}: ${q.items.length} product${q.items.length > 1 ? "s" : ""}, `
+    + `${q.weightText} · ${q.primary}${q.secondary ? ` (${q.secondary})` : ""}`;
 
   /** Full plain-text quote (Copy text / Email). */
   function text(q) {
@@ -298,9 +334,11 @@
       `${q.brand ? q.brand + " – " : ""}SHIPPING QUOTE ${q.id}`,
       `${q.from} → ${q.to}`,
       `Date: ${q.dateText}`,
-      `Parcel weight: ${q.weightText}${q.chargedText !== q.weightText ? ` (charged as ${q.chargedText})` : ""}`,
+      `Products: ${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
       "",
-      ...q.lines.map(([label, amount]) => `${label}: ${amount}`),
+      ...q.items.map((it, i) => `${i + 1}. ${it.name}: ${it.unit} × ${it.qty} = ${it.weight} → ${it.amount}`),
+      ...(q.extras.length ? ["", `Subtotal: ${q.itemsTotal.amount}`, ...q.extras.map(([label, amount]) => `${label}: ${amount}`)] : []),
+      "",
       `${q.totalLabel.toUpperCase()}: ${q.primary}${q.free ? " (free shipping)" : ""}`,
     ];
     if (q.secondary) lines.push(q.secondary);

@@ -18,7 +18,7 @@
          font:16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); -webkit-text-size-adjust:100%; }
   svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; flex:none; }
 
-  .card { width:100%; max-width:440px; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:28px 24px; box-shadow:0 8px 30px rgba(29,36,51,.06); }
+  .card { width:100%; max-width:560px; background:var(--card); border:1px solid var(--line); border-radius:18px; padding:28px 24px; box-shadow:0 8px 30px rgba(29,36,51,.06); }
   .pane-result { min-width:0; }
   h1 { margin:0; font-size:22px; }
   .sub { margin:2px 0 22px; color:var(--muted); font-size:14px; }
@@ -33,6 +33,54 @@
   .stepper input { text-align:center; font-size:24px; font-weight:600; }
   .stepper button { width:56px; flex:none; border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink); cursor:pointer; display:grid; place-items:center; }
   .stepper button:active { background:var(--accent-soft); }
+  .stepper.small button { width:44px; }
+  .stepper.small input { font-size:20px; padding:12px 4px; min-width:0; }
+
+  /* Add-product form */
+  .row2 { display:grid; grid-template-columns:minmax(0, 1fr) 156px; gap:12px; }
+  .row2 label.field { margin-bottom:12px; }
+  .unit-input { display:flex; gap:8px; }
+  .unit-input input { min-width:0; }
+  .seg.unit { margin:0; flex:none; }
+  .seg.unit button { padding:0 16px; }
+  .form-error { margin:-4px 0 10px; font-size:13px; color:#b42318; }
+  .form-error:empty { display:none; }
+  .form-actions { display:flex; gap:8px; }
+  .add-btn { flex:1; font:inherit; font-weight:700; padding:13px; border-radius:10px; border:1px solid #c9d7ff; background:var(--accent-soft); color:var(--accent); cursor:pointer; }
+  .add-btn:hover { background:#e4ecff; }
+  .cancel-btn { font:inherit; font-weight:600; padding:13px 16px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; }
+  .cancel-btn[hidden] { display:none; }
+
+  /* Products table */
+  .items { margin:20px 0 6px; }
+  .items[hidden], .empty-hint[hidden] { display:none; }
+  .items-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+  .items-head h2 { margin:0; font-size:16px; }
+  .items-head h2 span { color:var(--muted); font-weight:500; }
+  .link-btn { border:none; background:none; font:inherit; font-size:13px; font-weight:600; color:#b42318; cursor:pointer; padding:8px; border-radius:8px; }
+  .items-table { width:100%; border-collapse:collapse; font-size:14px; }
+  .items-table th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  .items-table td { padding:10px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .items-table .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .items-table .c-qty { text-align:center; }
+  .items-table tbody tr { cursor:pointer; }
+  .items-table tbody tr:hover { background:#fafbfc; }
+  .items-table tbody tr.editing { background:var(--accent-soft); }
+  .items-table tfoot td { font-weight:700; border-bottom:none; }
+  .item-name { font-weight:600; overflow-wrap:anywhere; }
+  .item-meta { display:none; font-size:12px; color:var(--muted); }
+  .remove { border:none; background:none; color:var(--muted); width:34px; height:34px; border-radius:8px; cursor:pointer; display:grid; place-items:center; }
+  .remove:hover { color:#b42318; background:#fef3f2; }
+  .remove svg { width:16px; height:16px; }
+  .items-hint { margin:8px 0 0; font-size:12px; color:var(--muted); }
+  .empty-hint { margin:18px 0 6px; padding:16px; border:1px dashed var(--line); border-radius:12px; font-size:14px; color:var(--muted); text-align:center; }
+  @media (max-width: 560px) {
+    .items-table .c-unit, .items-table .c-qty { display:none; }
+    .item-meta { display:block; }
+  }
+  @media (max-width: 480px) {
+    .row2 { grid-template-columns:1fr; gap:0; }
+  }
 
   .result { margin-top:4px; padding:20px 16px; border-radius:14px; background:var(--accent-soft); text-align:center; }
   .seg { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; margin-bottom:12px; }
@@ -103,18 +151,21 @@
     .actions button { font-size:12px; padding:10px 2px; }
     .share-grid i { width:48px; height:48px; border-radius:14px; }
   }
-  /* Landscape phones and short windows: inputs | result side by side */
+  /* Wide screens, landscape phones and short windows: products | total side by side */
+  @media (min-width: 960px), (min-width: 700px) and (max-height: 560px) {
+    .card { max-width:1040px; display:grid; grid-template-columns:minmax(0, 1.4fr) minmax(300px, 1fr); gap:0 32px; align-items:start; }
+    .pane-result { position:sticky; top:16px; }
+    .result { margin-top:0; }
+    .items-table .c-unit, .items-table .c-qty { display:table-cell; }
+    .item-meta { display:none; }
+  }
   @media (min-width: 700px) and (max-height: 560px) {
     body { justify-content:flex-start; }
-    .card { max-width:880px; display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr); gap:0 28px; align-items:start; padding:22px 24px; }
+    .card { padding:22px 24px; }
     .sub { margin-bottom:16px; }
-    .result { margin-top:0; padding:14px 16px; }
+    .result { padding:14px 16px; }
     .seg { margin-bottom:6px; }
     .actions { margin-top:12px; }
-  }
-  /* Large screens: slightly bigger card */
-  @media (min-width: 1600px) and (min-height: 900px) {
-    .card { max-width:500px; padding:34px 30px; }
   }
 
   #printImg { display:none; }
@@ -132,13 +183,49 @@
   <h1 id="title">Shipping cost</h1>
   <p class="sub" id="route">Canada → Sri Lanka</p>
 
-  <label class="field"><span>Parcel weight (kg)</span>
-    <div class="stepper">
-      <button type="button" id="minus" aria-label="Decrease weight"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-      <input id="weight" type="number" min="0" step="any" inputmode="decimal" placeholder="0.0" autofocus>
-      <button type="button" id="plus" aria-label="Increase weight"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  <form id="itemForm" autocomplete="off" novalidate>
+    <label class="field"><span>Product name</span>
+      <input id="itemName" type="text" maxlength="60" placeholder="e.g. Tea, clothes, shoes" enterkeyhint="next">
+    </label>
+    <div class="row2">
+      <label class="field"><span>Weight (each)</span>
+        <div class="unit-input">
+          <input id="itemWeight" type="number" min="0" step="any" inputmode="decimal" placeholder="0" enterkeyhint="done">
+          <div class="seg unit" id="unitToggle" role="group" aria-label="Weight unit">
+            <button type="button" data-unit="g">g</button>
+            <button type="button" data-unit="kg">kg</button>
+          </div>
+        </div>
+      </label>
+      <label class="field"><span>Quantity</span>
+        <div class="stepper small">
+          <button type="button" id="qtyMinus" aria-label="Decrease quantity"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <input id="itemQty" type="number" min="1" step="1" value="1" inputmode="numeric">
+          <button type="button" id="qtyPlus" aria-label="Increase quantity"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        </div>
+      </label>
     </div>
-  </label>
+    <div class="form-error" id="itemError" role="alert"></div>
+    <div class="form-actions">
+      <button type="submit" class="add-btn" id="addBtn">+ Add product</button>
+      <button type="button" class="cancel-btn" id="cancelEdit" hidden>Cancel</button>
+    </div>
+  </form>
+
+  <p class="empty-hint" id="emptyHint">Add each product with its weight and quantity. The shipping cost updates as you go.</p>
+  <section class="items" id="itemsSection" hidden>
+    <div class="items-head">
+      <h2>Products <span id="itemCount"></span></h2>
+      <button type="button" class="link-btn" id="clearItems">Clear all</button>
+    </div>
+    <table class="items-table">
+      <thead><tr><th>Product</th><th class="c-unit num">Weight</th><th class="c-qty">Qty</th><th class="num">Total wt</th><th class="num">Shipping</th><th></th></tr></thead>
+      <tbody id="itemRows"></tbody>
+      <tfoot><tr><td>Total</td><td class="c-unit"></td><td class="c-qty" id="sumQty"></td><td class="num" id="sumWeight"></td><td class="num" id="sumShip"></td><td></td></tr></tfoot>
+    </table>
+    <p class="items-hint">Tap a product to change it.</p>
+  </section>
+
   <label class="field" id="zoneWrap" hidden><span>Destination</span>
     <select id="zone"></select>
   </label>
@@ -286,7 +373,7 @@
     $("detail").textContent = "Shipping rates are unavailable. Please try again later.";
     return;
   }
-  const { num, round2, calculate, formatMoney, createCurrencyView } = Shipping;
+  const { num, calculate, formatMoney, createCurrencyView } = Shipping;
   const view = createCurrencyView({ toggle: $("curToggle"), getBase: () => rates.currency, onChange: render });
 
   // Static page setup from published rates
@@ -303,11 +390,59 @@
   const totalLabel = rates.taxPct > 0 ? "Total shipping (incl. tax)" : "Total shipping";
   $("totalLabel").textContent = totalLabel;
 
-  const kgText = (n) => `${round2(n)} kg`;
+  // ---- Products (kept in this browser so a refresh doesn't lose the list) ----
+  const ITEMS_KEY = "shippingItems.v1";
+  const UNIT_KEY = "shippingUnit.v1";
+  const MAX_ITEMS = 100;
+  const MAX_QTY = 999;
+  let items = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem(ITEMS_KEY));
+    if (Array.isArray(saved)) {
+      items = saved
+        .filter((it) => it && num(it.weight) > 0 && (it.unit === "g" || it.unit === "kg"))
+        .slice(0, MAX_ITEMS)
+        .map((it, i) => ({
+          id: String(it.id || `restored-${i}`),
+          name: String(it.name || `Item ${i + 1}`).slice(0, 60),
+          weight: num(it.weight),
+          unit: it.unit,
+          qty: Math.max(1, Math.min(MAX_QTY, Math.floor(num(it.qty)) || 1)),
+        }));
+    }
+  } catch {}
+  let unit = localStorage.getItem(UNIT_KEY) === "g" ? "g" : "kg";
+  let editingId = null;
+  const saveItems = () => localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+
+  const itemKg = (it) => (it.unit === "g" ? it.weight / 1000 : it.weight) * it.qty;
+  const totalKg = () => items.reduce((sum, it) => sum + itemKg(it), 0);
+  const trim = (n) => String(+n.toFixed(3));
+  /** "750 g" below 1 kg, otherwise "2.35 kg" (gram precision). */
+  const weightText = (kg) => (kg < 1 ? `${trim(kg * 1000)} g` : `${trim(kg)} kg`);
+  const unitText = (it) => `${trim(it.weight)} ${it.unit}`;
+
   const input = () => ({
-    weight: num($("weight").value), qty: 1,
+    weight: totalKg(), qty: 1,
     zoneIndex: Number($("zone").value) || 0, orderValue: $("orderValue").value,
   });
+
+  /** LKR when selected and the live rate is loaded, otherwise the billing currency. */
+  function displayCurrency() {
+    const fx = view.fx();
+    return view.display() === "LKR" && fx ? { cur: "LKR", rate: fx.rate } : { cur: rates.currency, rate: 1 };
+  }
+
+  /** Split the weight charge across products by weight (largest remainder), so the cents add up exactly. */
+  function itemShares(weightCharge, rate) {
+    const cents = Math.round(weightCharge * rate * 100);
+    const kg = totalKg();
+    const exact = items.map((it) => (cents * itemKg(it)) / kg);
+    const floors = exact.map(Math.floor);
+    const left = cents - floors.reduce((a, b) => a + b, 0);
+    exact.map((e, i) => [e - floors[i], i]).sort((a, b) => b[0] - a[0]).slice(0, left).forEach(([, i]) => { floors[i] += 1; });
+    return floors.map((c) => c / 100);
+  }
 
   /** Shrink the total until it fits on one line (long LKR amounts on small screens). */
   function fitTotal() {
@@ -320,54 +455,86 @@
     }
   }
 
+  function renderItems(r) {
+    $("emptyHint").hidden = items.length > 0;
+    $("itemsSection").hidden = items.length === 0;
+    if (!r) return;
+    const { cur, rate } = displayCurrency();
+    const shares = itemShares(r.weightCharge, rate);
+    $("itemRows").replaceChildren(...items.map((it, i) => {
+      const tr = document.createElement("tr");
+      tr.dataset.id = it.id;
+      tr.classList.toggle("editing", it.id === editingId);
+      tr.innerHTML = `<td><div class="item-name"></div><div class="item-meta"></div></td><td class="c-unit num"></td>`
+        + `<td class="c-qty"></td><td class="num"></td><td class="num"></td>`
+        + `<td><button type="button" class="remove"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
+      tr.querySelector(".item-name").textContent = it.name;
+      tr.querySelector(".item-meta").textContent = `${unitText(it)} × ${it.qty}`;
+      tr.children[1].textContent = unitText(it);
+      tr.children[2].textContent = it.qty;
+      tr.children[3].textContent = weightText(itemKg(it));
+      tr.children[4].textContent = formatMoney(shares[i], cur);
+      tr.querySelector(".remove").setAttribute("aria-label", `Remove ${it.name}`);
+      return tr;
+    }));
+    $("itemCount").textContent = `(${items.length})`;
+    document.querySelector(".items-table tfoot td").textContent = Math.abs(r.total - r.weightCharge) > 0.004 ? "Subtotal" : "Total";
+    $("sumQty").textContent = items.reduce((sum, it) => sum + it.qty, 0);
+    $("sumWeight").textContent = weightText(totalKg());
+    $("sumShip").textContent = formatMoney(shares.reduce((a, b) => a + b, 0), cur);
+  }
+
   function render() {
     $("fxInfo").textContent = view.sync();
     const inp = input();
-    const ready = inp.weight > 0;
+    const ready = items.length > 0 && inp.weight > 0;
     for (const id of ["printBtn", "imageBtn", "pdfBtn", "shareBtn"]) $(id).disabled = !ready;
+    const r = ready ? calculate(rates, inp) : null;
+    renderItems(r);
     const detail = $("detail");
     detail.classList.remove("free");
-    if (!ready) {
+    if (!r) {
       $("total").textContent = "-";
       fitTotal();
-      detail.textContent = "Enter the parcel weight";
+      detail.textContent = "Add your products to see the total";
       return;
     }
-    const r = calculate(rates, inp);
     $("total").textContent = view.money(r.total);
     fitTotal();
+    const summary = `${items.length} product${items.length > 1 ? "s" : ""} · ${weightText(inp.weight)}`;
     if (r.free) {
-      detail.textContent = "Free shipping on this order";
+      detail.textContent = `${summary} · Free shipping`;
       detail.classList.add("free");
     } else {
-      detail.textContent = r.chargeablePer !== inp.weight
-        ? `Charged as ${kgText(r.chargeablePer)} (rounded up)`
-        : kgText(inp.weight);
+      detail.textContent = r.chargeablePer > inp.weight + 1e-9 ? `${summary} · charged as ${weightText(r.chargeablePer)}` : summary;
     }
   }
 
-  /** Snapshot of the current quote for export/share. Null when no weight entered. */
+  /** Snapshot of the current quote for export/share. Null when there are no products. */
   function buildQuote() {
     const inp = input();
-    if (!inp.weight) return null;
+    if (!items.length || !inp.weight) return null;
     const r = calculate(rates, inp);
     const base = rates.currency;
-    const money = (n) => formatMoney(n, base);
+    const { cur, rate } = displayCurrency();
+    const money = (n) => formatMoney(n * rate, cur);
+    const baseTotal = formatMoney(r.total, base);
     const fx = view.fx();
-    const baseTotal = money(r.total);
     const lkrTotal = fx ? formatMoney(r.total * fx.rate, "LKR") : null;
-    const showLkr = view.display() === "LKR" && lkrTotal;
+    const showLkr = cur === "LKR";
+    const shares = itemShares(r.weightCharge, rate);
 
-    // Line items in the billing currency
-    const lines = [[`Shipping charge (${kgText(r.chargeable)})`, money(r.weightCharge)]];
-    if (r.baseFee) lines.push(["Fee per shipment", money(r.baseFee)]);
-    if (r.fuel) lines.push([`Fuel surcharge (${rates.fuelPct}%)`, money(r.fuel)]);
-    if (r.handling) lines.push(["Handling", money(r.handling)]);
+    // Shipment-level charges after the products, in the display currency
+    const extras = [];
+    if (r.baseFee) extras.push(["Fee per shipment", money(r.baseFee)]);
+    if (r.fuel) extras.push([`Fuel surcharge (${rates.fuelPct}%)`, money(r.fuel)]);
+    if (r.handling) extras.push(["Handling", money(r.handling)]);
     const beforeMin = r.baseFee + r.weightCharge + r.fuel + r.handling;
-    if (r.minApplied) lines.push(["Minimum charge adjustment", money(rates.minCharge - beforeMin)]);
-    if (r.free) lines.push(["Free shipping", `−${money(r.minApplied ? rates.minCharge : beforeMin)}`]);
-    if (r.tax) lines.push([`Tax (${rates.taxPct}%)`, money(r.tax)]);
+    if (r.minApplied) extras.push(["Minimum charge adjustment", money(rates.minCharge - beforeMin)]);
+    if (r.free) extras.push(["Free shipping", `−${money(r.minApplied ? rates.minCharge : beforeMin)}`]);
+    if (r.tax) extras.push([`Tax (${rates.taxPct}%)`, money(r.tax)]);
 
+    const pcs = items.reduce((sum, it) => sum + it.qty, 0);
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     const when = { dateStyle: "medium", timeStyle: "short" };
@@ -378,10 +545,15 @@
       to: rates.zones.length > 1 ? `Sri Lanka · ${r.zone.name}` : "Sri Lanka",
       id: `Q-${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`,
       dateText: now.toLocaleString(undefined, when),
-      weightText: kgText(inp.weight),
-      chargedText: kgText(r.chargeablePer),
-      lines,
-      amountCur: base,
+      countText: `${items.length} (${pcs} pcs)`,
+      weightText: weightText(inp.weight),
+      chargedText: r.chargeablePer > inp.weight + 1e-9 ? weightText(r.chargeablePer) : "",
+      items: items.map((it, i) => ({
+        name: it.name, unit: unitText(it), qty: String(it.qty), weight: weightText(itemKg(it)), amount: formatMoney(shares[i], cur),
+      })),
+      itemsTotal: { qty: String(pcs), weight: weightText(inp.weight), amount: formatMoney(shares.reduce((a, b) => a + b, 0), cur) },
+      extras,
+      amountCur: cur,
       totalLabel: rates.taxPct > 0 ? "Total incl. tax" : "Total",
       primary: showLkr ? lkrTotal : baseTotal,
       secondary: r.free ? "" : showLkr ? `Billed in ${base}: ${baseTotal}` : lkrTotal ? `≈ ${lkrTotal}` : "",
@@ -407,12 +579,92 @@
     catch (e) { if (e && e.name !== "AbortError") toast("Something went wrong. Please try again."); }
   }
 
-  // Weight stepper
-  const STEP = 0.5;
-  const setWeight = (w) => { $("weight").value = w > 0 ? round2(w) : ""; render(); };
-  $("minus").addEventListener("click", () => setWeight(Math.max(0, (Math.ceil(num($("weight").value) / STEP) - 1) * STEP)));
-  $("plus").addEventListener("click", () => setWeight((Math.floor(num($("weight").value) / STEP) + 1) * STEP));
-  ["weight", "zone", "orderValue"].forEach((id) => $(id).addEventListener("input", render));
+  // ---- Add / edit / remove products ----
+  const form = $("itemForm");
+  const setUnit = (u) => {
+    unit = u;
+    localStorage.setItem(UNIT_KEY, u);
+    for (const b of $("unitToggle").children) b.classList.toggle("on", b.dataset.unit === u);
+  };
+  setUnit(unit);
+  $("unitToggle").addEventListener("click", (e) => {
+    const u = e.target.closest("[data-unit]")?.dataset.unit;
+    if (u) setUnit(u);
+  });
+  const qtyValue = () => Math.max(1, Math.min(MAX_QTY, Math.floor(num($("itemQty").value)) || 1));
+  $("qtyMinus").addEventListener("click", () => { $("itemQty").value = Math.max(1, qtyValue() - 1); });
+  $("qtyPlus").addEventListener("click", () => { $("itemQty").value = Math.min(MAX_QTY, qtyValue() + 1); });
+  $("itemName").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("itemWeight").focus(); }
+  });
+
+  function resetForm() {
+    editingId = null;
+    form.reset();
+    $("itemQty").value = 1;
+    $("itemError").textContent = "";
+    $("addBtn").textContent = "+ Add product";
+    $("cancelEdit").hidden = true;
+  }
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = $("itemName").value.trim();
+    const weight = num($("itemWeight").value);
+    const problem = !name ? ["Enter the product name.", "itemName"]
+      : !weight ? ["Enter the weight of one item.", "itemWeight"]
+      : (unit === "kg" ? weight : weight / 1000) > 1000 ? ["That weight looks too large. Check g or kg.", "itemWeight"]
+      : !editingId && items.length >= MAX_ITEMS ? [`You can add up to ${MAX_ITEMS} products.`, "itemName"]
+      : null;
+    if (problem) {
+      $("itemError").textContent = problem[0];
+      $(problem[1]).focus();
+      return;
+    }
+    const wasEditing = editingId;
+    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue() };
+    items = wasEditing ? items.map((it) => (it.id === wasEditing ? item : it)) : [...items, item];
+    saveItems();
+    resetForm();
+    render();
+    toast(wasEditing ? "Product updated" : `Added ${name}`);
+    $("itemName").focus();
+  });
+
+  $("cancelEdit").addEventListener("click", () => { resetForm(); render(); });
+
+  $("itemRows").addEventListener("click", (e) => {
+    const it = items.find((x) => x.id === e.target.closest("tr[data-id]")?.dataset.id);
+    if (!it) return;
+    if (e.target.closest(".remove")) {
+      items = items.filter((x) => x.id !== it.id);
+      if (editingId === it.id) resetForm();
+      saveItems();
+      render();
+      toast(`Removed ${it.name}`);
+      return;
+    }
+    editingId = it.id;
+    $("itemName").value = it.name;
+    $("itemWeight").value = it.weight;
+    $("itemQty").value = it.qty;
+    setUnit(it.unit);
+    $("itemError").textContent = "";
+    $("addBtn").textContent = "Save changes";
+    $("cancelEdit").hidden = false;
+    render();
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+    $("itemName").focus({ preventScroll: true });
+  });
+
+  $("clearItems").addEventListener("click", () => {
+    if (!confirm("Remove all products from this shipment?")) return;
+    items = [];
+    resetForm();
+    saveItems();
+    render();
+  });
+  ["zone", "orderValue"].forEach((id) => $(id).addEventListener("input", render));
 
   // Print / image / PDF
   $("printBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
