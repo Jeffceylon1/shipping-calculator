@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f5eff">
-<title>Shipping Calculator: Canada → Sri Lanka</title>
-<meta name="description" content="Instant shipping cost from Canada to Sri Lanka in CAD or LKR. Print, save or send your quote.">
-<meta property="og:title" content="Shipping Calculator: Canada → Sri Lanka">
-<meta property="og:description" content="Instant shipping cost in CAD or LKR. Print, save or send your quote.">
+<title>Cost Calculator: Canada → Sri Lanka</title>
+<meta name="description" content="Work out the full cost of goods sent from Canada to Sri Lanka: buying price plus shipping, per product, in CAD or LKR.">
+<meta property="og:title" content="Cost Calculator: Canada → Sri Lanka">
+<meta property="og:description" content="Buying price plus shipping, per product, in CAD or LKR. Print, save or send your estimate.">
 <meta property="og:type" content="website">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
@@ -41,6 +41,10 @@
   .row2 label.field { margin-bottom:12px; }
   .unit-input { display:flex; gap:8px; }
   .unit-input input { min-width:0; }
+  .money-input { display:flex; }
+  .money-input span { display:grid; place-items:center; padding:0 14px; border:1px solid var(--line); border-right:none; border-radius:10px 0 0 10px;
+                      background:#f9fafb; color:var(--muted); font-size:15px; font-weight:600; }
+  .money-input input { min-width:0; border-radius:0 10px 10px 0; }
   .seg.unit { margin:0; flex:none; }
   .seg.unit button { padding:0 16px; }
   .form-error { margin:-4px 0 10px; font-size:13px; color:#b42318; }
@@ -62,21 +66,22 @@
   .items-table th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
   .items-table td { padding:10px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
   .items-table .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .items-table .c-qty { text-align:center; }
+  .items-table .sub-line { display:block; font-size:12px; font-weight:400; color:var(--muted); }
   .items-table tbody tr { cursor:pointer; }
   .items-table tbody tr:hover { background:#fafbfc; }
   .items-table tbody tr.editing { background:var(--accent-soft); }
   .items-table tfoot td { font-weight:700; border-bottom:none; }
   .item-name { font-weight:600; overflow-wrap:anywhere; }
-  .item-meta { display:none; font-size:12px; color:var(--muted); }
   .remove { border:none; background:none; color:var(--muted); width:34px; height:34px; border-radius:8px; cursor:pointer; display:grid; place-items:center; }
   .remove:hover { color:#b42318; background:#fef3f2; }
   .remove svg { width:16px; height:16px; }
   .items-hint { margin:8px 0 0; font-size:12px; color:var(--muted); }
   .empty-hint { margin:18px 0 6px; padding:16px; border:1px dashed var(--line); border-radius:12px; font-size:14px; color:var(--muted); text-align:center; }
+  .item-meta { font-size:12px; color:var(--muted); }
+  .cost-ship { display:none; }
   @media (max-width: 560px) {
-    .items-table .c-unit, .items-table .c-qty { display:none; }
-    .item-meta { display:block; }
+    .items-table .c-price, .items-table .c-ship { display:none; }
+    .cost-ship { display:block; }
   }
   @media (max-width: 480px) {
     .row2 { grid-template-columns:1fr; gap:0; }
@@ -89,7 +94,7 @@
   .seg button.on { background:var(--accent); color:#fff; }
   .label { font-size:14px; color:var(--muted); }
   .total { font-size:42px; line-height:1.15; font-weight:700; margin:4px 0; font-variant-numeric: tabular-nums; white-space:nowrap; }
-  .detail { font-size:14px; color:var(--muted); }
+  .detail { font-size:14px; color:var(--muted); white-space:pre-line; }
   .detail.free { color:var(--ok); font-weight:600; }
   .fx { margin-top:10px; font-size:12px; color:var(--muted); }
 
@@ -156,8 +161,8 @@
     .card { max-width:1040px; display:grid; grid-template-columns:minmax(0, 1.4fr) minmax(300px, 1fr); gap:0 32px; align-items:start; }
     .pane-result { position:sticky; top:16px; }
     .result { margin-top:0; }
-    .items-table .c-unit, .items-table .c-qty { display:table-cell; }
-    .item-meta { display:none; }
+    .items-table .c-price, .items-table .c-ship { display:table-cell; }
+    .cost-ship { display:none; }
   }
   @media (min-width: 700px) and (max-height: 560px) {
     body { justify-content:flex-start; }
@@ -180,8 +185,8 @@
 <body>
 <main class="card">
   <div class="pane-input">
-  <h1 id="title">Shipping cost</h1>
-  <p class="sub" id="route">Canada → Sri Lanka</p>
+  <h1 id="title">Cost calculator</h1>
+  <p class="sub" id="route">Canada → Sri Lanka · buying price + shipping</p>
 
   <form id="itemForm" autocomplete="off" novalidate>
     <label class="field"><span>Product name</span>
@@ -190,7 +195,7 @@
     <div class="row2">
       <label class="field"><span>Weight (each)</span>
         <div class="unit-input">
-          <input id="itemWeight" type="number" min="0" step="any" inputmode="decimal" placeholder="0" enterkeyhint="done">
+          <input id="itemWeight" type="number" min="0" step="any" inputmode="decimal" placeholder="0" enterkeyhint="next">
           <div class="seg unit" id="unitToggle" role="group" aria-label="Weight unit">
             <button type="button" data-unit="g">g</button>
             <button type="button" data-unit="kg">kg</button>
@@ -205,6 +210,12 @@
         </div>
       </label>
     </div>
+    <label class="field"><span>Buying price (each)</span>
+      <div class="money-input">
+        <span id="priceCur">CAD</span>
+        <input id="itemPrice" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00" enterkeyhint="done">
+      </div>
+    </label>
     <div class="form-error" id="itemError" role="alert"></div>
     <div class="form-actions">
       <button type="submit" class="add-btn" id="addBtn">+ Add product</button>
@@ -212,25 +223,22 @@
     </div>
   </form>
 
-  <p class="empty-hint" id="emptyHint">Add each product with its weight and quantity. The shipping cost updates as you go.</p>
+  <p class="empty-hint" id="emptyHint">Add each product with its weight, quantity and buying price. The total cost updates as you go.</p>
   <section class="items" id="itemsSection" hidden>
     <div class="items-head">
       <h2>Products <span id="itemCount"></span></h2>
       <button type="button" class="link-btn" id="clearItems">Clear all</button>
     </div>
     <table class="items-table">
-      <thead><tr><th>Product</th><th class="c-unit num">Weight</th><th class="c-qty">Qty</th><th class="num">Total wt</th><th class="num">Shipping</th><th></th></tr></thead>
+      <thead><tr><th>Product</th><th class="c-price num">Buying price</th><th class="c-ship num">Shipping</th><th class="num">Cost</th><th></th></tr></thead>
       <tbody id="itemRows"></tbody>
-      <tfoot><tr><td>Total</td><td class="c-unit"></td><td class="c-qty" id="sumQty"></td><td class="num" id="sumWeight"></td><td class="num" id="sumShip"></td><td></td></tr></tfoot>
+      <tfoot><tr><td><span id="sumLabel">Total</span><span class="sub-line" id="sumMeta"></span></td><td class="c-price num" id="sumPrice"></td><td class="c-ship num" id="sumShip"></td><td class="num" id="sumCost"></td><td></td></tr></tfoot>
     </table>
     <p class="items-hint">Tap a product to change it.</p>
   </section>
 
   <label class="field" id="zoneWrap" hidden><span>Destination</span>
     <select id="zone"></select>
-  </label>
-  <label class="field" id="orderWrap" hidden><span>Order value (<span id="orderCur">CAD</span>)</span>
-    <input id="orderValue" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00">
   </label>
   </div>
 
@@ -240,9 +248,9 @@
       <button type="button" data-cur="base">CAD</button>
       <button type="button" data-cur="LKR">LKR</button>
     </div>
-    <div class="label" id="totalLabel">Total shipping</div>
+    <div class="label" id="totalLabel">Total cost</div>
     <div class="total" id="total">-</div>
-    <div class="detail" id="detail">Enter the parcel weight</div>
+    <div class="detail" id="detail">Add your products to see the total cost</div>
     <div class="fx" id="fxInfo"></div>
   </section>
 
@@ -281,14 +289,14 @@
 <dialog id="shareSheet" aria-labelledby="shareTitle">
   <div class="sheet">
     <header>
-      <h2 id="shareTitle">Send quote</h2>
+      <h2 id="shareTitle">Send estimate</h2>
       <button type="button" class="icon-btn" id="shareClose" aria-label="Close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </header>
     <div class="quote-preview"><img id="quotePreview" alt="Quote preview"></div>
     <button type="button" class="send-main" id="sendMain">
       <svg id="sendIconShare" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       <svg id="sendIconWhatsApp" viewBox="0 0 24 24" hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-      <span id="sendMainLabel">Send quote image</span>
+      <span id="sendMainLabel">Send estimate image</span>
     </button>
     <p class="send-hint" id="sendHint">Choose WhatsApp, Messages, Viber, Messenger or any app.</p>
     <div class="send-more">
@@ -300,7 +308,7 @@
   </div>
 </dialog>
 
-<img id="printImg" alt="Shipping quote">
+<img id="printImg" alt="Cost estimate">
 <div class="toast" id="toast" role="status"></div>
 
 <script src="config.js"></script>
@@ -377,18 +385,15 @@
   const view = createCurrencyView({ toggle: $("curToggle"), getBase: () => rates.currency, onChange: render });
 
   // Static page setup from published rates
-  if (rates.businessName) { $("title").textContent = rates.businessName; document.title = `${rates.businessName}: Shipping to Sri Lanka`; }
-  $("route").textContent = rates.businessName ? `Shipping cost · ${ROUTE}` : ROUTE;
+  if (rates.businessName) { $("title").textContent = rates.businessName; document.title = `${rates.businessName}: Cost Calculator`; }
+  $("route").textContent = rates.businessName ? `Cost calculator · ${ROUTE}` : `${ROUTE} · buying price + shipping`;
   $("note").textContent = rates.quoteNote || "";
   $("contact").textContent = rates.contact || "";
   if (rates.zones.length > 1) {
     $("zoneWrap").hidden = false;
     rates.zones.forEach((z, i) => $("zone").add(new Option(z.name || `Zone ${i + 1}`, i)));
   }
-  $("orderWrap").hidden = !(rates.freeOver > 0);
-  $("orderCur").textContent = rates.currency;
-  const totalLabel = rates.taxPct > 0 ? "Total shipping (incl. tax)" : "Total shipping";
-  $("totalLabel").textContent = totalLabel;
+  $("priceCur").textContent = rates.currency;
 
   // ---- Products (kept in this browser so a refresh doesn't lose the list) ----
   const ITEMS_KEY = "shippingItems.v1";
@@ -408,6 +413,7 @@
           weight: num(it.weight),
           unit: it.unit,
           qty: Math.max(1, Math.min(MAX_QTY, Math.floor(num(it.qty)) || 1)),
+          price: num(it.price),
         }));
     }
   } catch {}
@@ -422,26 +428,40 @@
   const weightText = (kg) => (kg < 1 ? `${trim(kg * 1000)} g` : `${trim(kg)} kg`);
   const unitText = (it) => `${trim(it.weight)} ${it.unit}`;
 
-  const input = () => ({
-    weight: totalKg(), qty: 1,
-    zoneIndex: Number($("zone").value) || 0, orderValue: $("orderValue").value,
-  });
-
   /** LKR when selected and the live rate is loaded, otherwise the billing currency. */
   function displayCurrency() {
     const fx = view.fx();
     return view.display() === "LKR" && fx ? { cur: "LKR", rate: fx.rate } : { cur: rates.currency, rate: 1 };
   }
+  const fmt = (cents, cur) => formatMoney(cents / 100, cur);
 
-  /** Split the weight charge across products by weight (largest remainder), so the cents add up exactly. */
-  function itemShares(weightCharge, rate) {
-    const cents = Math.round(weightCharge * rate * 100);
+  /** Split cents across products by weight (largest remainder), so the parts add up exactly. */
+  function splitByWeight(cents) {
     const kg = totalKg();
     const exact = items.map((it) => (cents * itemKg(it)) / kg);
     const floors = exact.map(Math.floor);
     const left = cents - floors.reduce((a, b) => a + b, 0);
     exact.map((e, i) => [e - floors[i], i]).sort((a, b) => b[0] - a[0]).slice(0, left).forEach(([, i]) => { floors[i] += 1; });
-    return floors.map((c) => c / 100);
+    return floors;
+  }
+
+  /**
+   * Cost per product = buying price × qty + its share of the whole shipping charge (incl. any fees/tax).
+   * All amounts in exact cents of the display currency, so rows always add up to the totals. Null without products.
+   */
+  function costing() {
+    const kg = totalKg();
+    if (!items.length || !kg) return null;
+    const goods = items.reduce((sum, it) => sum + it.price * it.qty, 0); // billing currency
+    const r = calculate(rates, { weight: kg, qty: 1, zoneIndex: Number($("zone").value) || 0, orderValue: goods });
+    const { cur, rate } = displayCurrency();
+    const ship = splitByWeight(Math.round(r.total * rate * 100));
+    const rows = items.map((it, i) => {
+      const price = Math.round(it.price * it.qty * rate * 100);
+      return { it, unitPrice: Math.round(it.price * rate * 100), price, ship: ship[i], cost: price + ship[i] };
+    });
+    const sum = (key) => rows.reduce((total, row) => total + row[key], 0);
+    return { r, kg, cur, rows, goods, totals: { price: sum("price"), ship: sum("ship"), cost: sum("cost") } };
   }
 
   /** Shrink the total until it fits on one line (long LKR amounts on small screens). */
@@ -455,84 +475,79 @@
     }
   }
 
-  function renderItems(r) {
+  const metaText = (it) => `${unitText(it)} × ${it.qty} = ${weightText(itemKg(it))}`;
+
+  function renderItems(c) {
     $("emptyHint").hidden = items.length > 0;
     $("itemsSection").hidden = items.length === 0;
-    if (!r) return;
-    const { cur, rate } = displayCurrency();
-    const shares = itemShares(r.weightCharge, rate);
-    $("itemRows").replaceChildren(...items.map((it, i) => {
+    if (!c) return;
+    const { cur } = c;
+    $("itemRows").replaceChildren(...c.rows.map(({ it, unitPrice, price, ship, cost }) => {
       const tr = document.createElement("tr");
       tr.dataset.id = it.id;
       tr.classList.toggle("editing", it.id === editingId);
-      tr.innerHTML = `<td><div class="item-name"></div><div class="item-meta"></div></td><td class="c-unit num"></td>`
-        + `<td class="c-qty"></td><td class="num"></td><td class="num"></td>`
+      tr.innerHTML = `<td><div class="item-name"></div><div class="item-meta"></div></td>`
+        + `<td class="c-price num"><span></span><span class="sub-line"></span></td><td class="c-ship num"></td>`
+        + `<td class="num"><span></span><span class="sub-line cost-ship"></span></td>`
         + `<td><button type="button" class="remove"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
       tr.querySelector(".item-name").textContent = it.name;
-      tr.querySelector(".item-meta").textContent = `${unitText(it)} × ${it.qty}`;
-      tr.children[1].textContent = unitText(it);
-      tr.children[2].textContent = it.qty;
-      tr.children[3].textContent = weightText(itemKg(it));
-      tr.children[4].textContent = formatMoney(shares[i], cur);
+      tr.querySelector(".item-meta").textContent = metaText(it);
+      const [priceCell, shipCell, costCell] = [tr.children[1], tr.children[2], tr.children[3]];
+      priceCell.children[0].textContent = fmt(price, cur);
+      priceCell.children[1].textContent = it.qty > 1 ? `${fmt(unitPrice, cur)} each` : "";
+      shipCell.textContent = fmt(ship, cur);
+      costCell.children[0].textContent = fmt(cost, cur);
+      costCell.children[1].textContent = `incl. ${fmt(ship, cur)} shipping`;
       tr.querySelector(".remove").setAttribute("aria-label", `Remove ${it.name}`);
       return tr;
     }));
+    const pcs = items.reduce((sum, it) => sum + it.qty, 0);
     $("itemCount").textContent = `(${items.length})`;
-    document.querySelector(".items-table tfoot td").textContent = Math.abs(r.total - r.weightCharge) > 0.004 ? "Subtotal" : "Total";
-    $("sumQty").textContent = items.reduce((sum, it) => sum + it.qty, 0);
-    $("sumWeight").textContent = weightText(totalKg());
-    $("sumShip").textContent = formatMoney(shares.reduce((a, b) => a + b, 0), cur);
+    $("sumMeta").textContent = `${pcs} pcs · ${weightText(c.kg)}`;
+    $("sumPrice").textContent = fmt(c.totals.price, cur);
+    $("sumShip").textContent = fmt(c.totals.ship, cur);
+    $("sumCost").textContent = fmt(c.totals.cost, cur);
   }
 
   function render() {
     $("fxInfo").textContent = view.sync();
-    const inp = input();
-    const ready = items.length > 0 && inp.weight > 0;
-    for (const id of ["printBtn", "imageBtn", "pdfBtn", "shareBtn"]) $(id).disabled = !ready;
-    const r = ready ? calculate(rates, inp) : null;
-    renderItems(r);
+    const c = costing();
+    for (const id of ["printBtn", "imageBtn", "pdfBtn", "shareBtn"]) $(id).disabled = !c;
+    renderItems(c);
     const detail = $("detail");
     detail.classList.remove("free");
-    if (!r) {
+    if (!c) {
       $("total").textContent = "-";
       fitTotal();
-      detail.textContent = "Add your products to see the total";
+      detail.textContent = "Add your products to see the total cost";
       return;
     }
-    $("total").textContent = view.money(r.total);
+    $("total").textContent = fmt(c.totals.cost, c.cur);
     fitTotal();
-    const summary = `${items.length} product${items.length > 1 ? "s" : ""} · ${weightText(inp.weight)}`;
-    if (r.free) {
-      detail.textContent = `${summary} · Free shipping`;
-      detail.classList.add("free");
-    } else {
-      detail.textContent = r.chargeablePer > inp.weight + 1e-9 ? `${summary} · charged as ${weightText(r.chargeablePer)}` : summary;
-    }
+    const summary = `${items.length} product${items.length > 1 ? "s" : ""} · ${weightText(c.kg)}`
+      + (c.r.free ? " · free shipping" : c.r.chargeablePer > c.kg + 1e-9 ? ` · charged as ${weightText(c.r.chargeablePer)}` : "");
+    detail.textContent = `Products ${fmt(c.totals.price, c.cur)} + Shipping ${fmt(c.totals.ship, c.cur)}\n${summary}`;
+    detail.classList.toggle("free", c.r.free);
   }
 
-  /** Snapshot of the current quote for export/share. Null when there are no products. */
+  /** Snapshot of the current estimate for export/share. Null when there are no products. */
   function buildQuote() {
-    const inp = input();
-    if (!items.length || !inp.weight) return null;
-    const r = calculate(rates, inp);
+    const c = costing();
+    if (!c) return null;
+    const { r, cur } = c;
     const base = rates.currency;
-    const { cur, rate } = displayCurrency();
-    const money = (n) => formatMoney(n * rate, cur);
-    const baseTotal = formatMoney(r.total, base);
     const fx = view.fx();
-    const lkrTotal = fx ? formatMoney(r.total * fx.rate, "LKR") : null;
+    const baseTotal = formatMoney(c.goods + r.total, base);
     const showLkr = cur === "LKR";
-    const shares = itemShares(r.weightCharge, rate);
 
-    // Shipment-level charges after the products, in the display currency
-    const extras = [];
-    if (r.baseFee) extras.push(["Fee per shipment", money(r.baseFee)]);
-    if (r.fuel) extras.push([`Fuel surcharge (${rates.fuelPct}%)`, money(r.fuel)]);
-    if (r.handling) extras.push(["Handling", money(r.handling)]);
-    const beforeMin = r.baseFee + r.weightCharge + r.fuel + r.handling;
-    if (r.minApplied) extras.push(["Minimum charge adjustment", money(rates.minCharge - beforeMin)]);
-    if (r.free) extras.push(["Free shipping", `−${money(r.minApplied ? rates.minCharge : beforeMin)}`]);
-    if (r.tax) extras.push([`Tax (${rates.taxPct}%)`, money(r.tax)]);
+    // What the shipping total is made of, when it is more than weight × rate
+    const money = (n) => formatMoney(n * (showLkr ? fx.rate : 1), cur);
+    const parts = [];
+    if (r.baseFee) parts.push(`fee per shipment ${money(r.baseFee)}`);
+    if (r.fuel) parts.push(`fuel surcharge ${money(r.fuel)}`);
+    if (r.handling) parts.push(`handling ${money(r.handling)}`);
+    if (r.minApplied) parts.push(`minimum charge ${money(rates.minCharge)}`);
+    if (r.tax) parts.push(`tax ${rates.taxPct}% ${money(r.tax)}`);
 
     const pcs = items.reduce((sum, it) => sum + it.qty, 0);
     const now = new Date();
@@ -546,18 +561,19 @@
       id: `Q-${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`,
       dateText: now.toLocaleString(undefined, when),
       countText: `${items.length} (${pcs} pcs)`,
-      weightText: weightText(inp.weight),
-      chargedText: r.chargeablePer > inp.weight + 1e-9 ? weightText(r.chargeablePer) : "",
-      items: items.map((it, i) => ({
-        name: it.name, unit: unitText(it), qty: String(it.qty), weight: weightText(itemKg(it)), amount: formatMoney(shares[i], cur),
+      weightText: weightText(c.kg),
+      chargedText: r.chargeablePer > c.kg + 1e-9 ? weightText(r.chargeablePer) : "",
+      items: c.rows.map(({ it, unitPrice, price, ship, cost }) => ({
+        name: it.name,
+        meta: `${metaText(it)}${it.price ? ` · ${fmt(unitPrice, cur)} each` : ""}`,
+        price: fmt(price, cur), ship: fmt(ship, cur), cost: fmt(cost, cur),
       })),
-      itemsTotal: { qty: String(pcs), weight: weightText(inp.weight), amount: formatMoney(shares.reduce((a, b) => a + b, 0), cur) },
-      extras,
+      totals: { price: fmt(c.totals.price, cur), ship: fmt(c.totals.ship, cur), cost: fmt(c.totals.cost, cur) },
+      shippingNote: r.free ? "Free shipping applied" : parts.length ? `Shipping includes ${parts.join(", ")}` : "",
       amountCur: cur,
-      totalLabel: rates.taxPct > 0 ? "Total incl. tax" : "Total",
-      primary: showLkr ? lkrTotal : baseTotal,
-      secondary: r.free ? "" : showLkr ? `Billed in ${base}: ${baseTotal}` : lkrTotal ? `≈ ${lkrTotal}` : "",
-      free: r.free,
+      totalLabel: "Total cost",
+      primary: fmt(c.totals.cost, cur),
+      secondary: showLkr ? `Billed in ${base}: ${baseTotal}` : fx ? `≈ ${formatMoney((c.goods + r.total) * fx.rate, "LKR")}` : "",
       fxLine: fx ? `1 ${base} = ${fx.rate.toFixed(2)} LKR (${new Date(fx.at).toLocaleString(undefined, when)})` : "",
       note: rates.quoteNote || "",
       contact: rates.contact || "",
@@ -597,6 +613,9 @@
   $("itemName").addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); $("itemWeight").focus(); }
   });
+  $("itemWeight").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("itemPrice").focus(); }
+  });
 
   function resetForm() {
     editingId = null;
@@ -611,9 +630,11 @@
     e.preventDefault();
     const name = $("itemName").value.trim();
     const weight = num($("itemWeight").value);
+    const price = num($("itemPrice").value);
     const problem = !name ? ["Enter the product name.", "itemName"]
       : !weight ? ["Enter the weight of one item.", "itemWeight"]
       : (unit === "kg" ? weight : weight / 1000) > 1000 ? ["That weight looks too large. Check g or kg.", "itemWeight"]
+      : price > 1_000_000 ? ["That price looks too large.", "itemPrice"]
       : !editingId && items.length >= MAX_ITEMS ? [`You can add up to ${MAX_ITEMS} products.`, "itemName"]
       : null;
     if (problem) {
@@ -622,7 +643,7 @@
       return;
     }
     const wasEditing = editingId;
-    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue() };
+    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue(), price };
     items = wasEditing ? items.map((it) => (it.id === wasEditing ? item : it)) : [...items, item];
     saveItems();
     resetForm();
@@ -648,6 +669,7 @@
     $("itemName").value = it.name;
     $("itemWeight").value = it.weight;
     $("itemQty").value = it.qty;
+    $("itemPrice").value = it.price || "";
     setUnit(it.unit);
     $("itemError").textContent = "";
     $("addBtn").textContent = "Save changes";
@@ -664,7 +686,7 @@
     saveItems();
     render();
   });
-  ["zone", "orderValue"].forEach((id) => $(id).addEventListener("input", render));
+  $("zone").addEventListener("input", render);
 
   // Print / image / PDF
   $("printBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
@@ -690,15 +712,15 @@
 
   // Phones (and browsers that share files): the system share menu sends the image to WhatsApp, Messages, Viber, …
   // Elsewhere: copy the image and open WhatsApp so it can be pasted into the chat.
-  $("sendMainLabel").textContent = canShareFiles ? "Send quote image" : "Send on WhatsApp";
+  $("sendMainLabel").textContent = canShareFiles ? "Send estimate image" : "Send on WhatsApp";
   $("sendMain").classList.toggle("whatsapp", !canShareFiles);
   $("sendIconShare").toggleAttribute("hidden", !canShareFiles);
   $("sendIconWhatsApp").toggleAttribute("hidden", canShareFiles);
   $("sendHint").textContent = canShareFiles
     ? "Choose WhatsApp, Messages, Viber, Messenger or any app."
     : canCopyImage
-      ? "The quote image is copied for you. In WhatsApp, open the chat and paste it (Ctrl+V or ⌘V)."
-      : "The quote image is saved for you. In WhatsApp, attach it to the chat.";
+      ? "The estimate image is copied for you. In WhatsApp, open the chat and paste it (Ctrl+V or ⌘V)."
+      : "The estimate image is saved for you. In WhatsApp, attach it to the chat.";
   sheet.querySelector('[data-send="copyImage"]').hidden = !canCopyImage;
 
   $("shareBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
@@ -717,7 +739,7 @@
     const { q, blob, file } = sending;
     try {
       if (canShareFiles) {
-        await navigator.share({ files: [file], text: Quote.caption(q), title: `Shipping quote ${q.id}` });
+        await navigator.share({ files: [file], text: Quote.caption(q), title: `Cost estimate ${q.id}` });
         sheet.close();
         return;
       }
