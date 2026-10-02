@@ -85,13 +85,13 @@
   .row-half { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .money-input span.suffix { border-left:none; border-right:1px solid var(--line); border-radius:0 10px 10px 0; }
   .money-input input:first-child { border-radius:10px 0 0 10px; }
+  .items-table .cost-inline { display:none; }
   @media (max-width: 480px) {
     .row2 { grid-template-columns:1fr; gap:0; }
     .items-table .c-sunit, .items-table .c-cost { display:none; }
     .items-table .cost-inline { display:inline; font-weight:600; color:var(--ink); }
     .items-table .sell-each { display:block; }
   }
-  .items-table .cost-inline { display:none; }
   .rate-src { margin:-6px 0 12px; font-size:12px; color:var(--muted); }
   .rate-src[hidden] { display:none; }
   .rate-src button { border:none; background:none; padding:0; font:inherit; font-weight:600; color:var(--accent); text-decoration:underline; cursor:pointer; }
@@ -114,7 +114,7 @@
   .summary[hidden] { display:none; }
   .summary div { background:#fff; border-radius:10px; padding:10px 8px; }
   .summary span { display:block; font-size:12px; color:var(--muted); }
-  .summary b { font-size:18px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+  .summary b { font-size:clamp(14px, 4.4vw, 18px); font-variant-numeric:tabular-nums; }
   .summary .gain b { color:var(--ok); }
   .summary .loss b { color:#b42318; }
 
