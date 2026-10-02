@@ -38,7 +38,7 @@
 
   /**
    * q: { brand, route, number, dateText, countText, weightText, chargedText?,
-   *      items: [{ name, meta, costMeta, cost, sellUnit, markup, sell }],
+   *      items: [{ name, meta, buying, shipping, cost, sellUnit, markup, sell }],
    *      totals: { price, ship, cost, sell }, profit, shippingNote?,
    *      amountCur, fxLine?, note?, contact? }
    * number: digits only (e.g. "1001"); shown as "No. 1001".
@@ -48,7 +48,7 @@
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2200 + q.items.length * 110;
+    draft.height = 2200 + q.items.length * 132;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -87,7 +87,7 @@
     fitFont(x, summary, 400, 24, 18, FONT, inner);
     x.fillText(summary, PAD, y);
 
-    // Products table: Product (name / meta / costMeta) | Cost | Selling (each) + markup | Selling total
+    // Products table: Product (name / meta / buying / shipping) | Cost | Selling (each) + markup | Selling total
     const COLW = 200; // max width of each money column
     const col = { name: PAD, cost: PAD + 570, unit: PAD + 790, sell: W - PAD };
     const NAME_MAX = col.cost - COLW - 16 - PAD; // 354px
@@ -120,13 +120,14 @@
       x.fillText(fit(it.name, NAME_MAX), col.name, y + 36);
       x.fillStyle = C.muted;
       x.font = `400 20px ${FONT}`;
-      x.fillText(fit(it.meta || "", NAME_MAX), col.name, y + 64);
-      x.fillText(fit(it.costMeta || "", NAME_MAX), col.name, y + 90);
+      x.fillText(fit(it.meta || "", NAME_MAX), col.name, y + 62);
+      x.fillText(fit(`Buying ${it.buying}`, NAME_MAX), col.name, y + 88);
+      x.fillText(fit(`Shipping ${it.shipping}`, NAME_MAX), col.name, y + 112);
       money(it.cost, col.cost, 400, 24, y + 48);
       money(it.sellUnit, col.unit, 400, 24, y + 48);
       money(it.markup || "", col.unit, 400, 18, y + 76, C.muted);
       money(it.sell, col.sell, 700, 24, y + 48);
-      y += 106;
+      y += 130;
       rule();
     }
     // Totals row
