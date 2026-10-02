@@ -37,16 +37,18 @@
   }
 
   /**
-   * q: { brand, route?, number, dateText, countText, weightText, chargedText?,
-   *      items: [{ name, meta, price, ship, cost }], totals: { price, ship, cost }, shippingNote?,
-   *      amountCur, totalLabel, primary, secondary?, fxLine?, note?, contact? }
+   * q: { brand, route, number, dateText, countText, weightText, chargedText?,
+   *      items: [{ name, meta, costMeta, cost, sellUnit, markup, sell }],
+   *      totals: { price, ship, cost, sell }, profit, shippingNote?,
+   *      amountCur, fxLine?, note?, contact? }
    * number: digits only (e.g. "1001"); shown as "No. 1001".
    * route: the admin's destination name; "" hides it everywhere.
+   * profit: formatted, may start with "-" (shown red) else green.
    */
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2000 + q.items.length * 84;
+    draft.height = 2200 + q.items.length * 110;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -59,7 +61,7 @@
     x.fillStyle = C.ink;
     fitFont(x, q.brand || "Cost Estimate", 700, 44, 28, FONT, inner * 0.62);
     x.fillText(q.brand || "Cost Estimate", PAD, y);
-    const subtitle = [q.brand ? "Cost estimate" : "", q.route].filter(Boolean).join(" · ");
+    const subtitle = q.route || "Cost estimate";
     if (subtitle) {
       x.fillStyle = C.muted;
       fitFont(x, subtitle, 400, 24, 18, FONT, inner * 0.62);
@@ -85,51 +87,55 @@
     fitFont(x, summary, 400, 24, 18, FONT, inner);
     x.fillText(summary, PAD, y);
 
-    // Products table: Product (name + weight × qty) | Buying price | Shipping | Cost
-    const col = { name: PAD, price: PAD + 600, ship: PAD + 790, cost: W - PAD };
-    const NAME_MAX = 460;
+    // Products table: Product (name / meta / costMeta) | Cost | Selling (each) + markup | Selling total
+    const COLW = 200; // max width of each money column
+    const col = { name: PAD, cost: PAD + 570, unit: PAD + 790, sell: W - PAD };
+    const NAME_MAX = col.cost - COLW - 16 - PAD; // 354px
     const fit = (text, max) => {
       if (x.measureText(text).width <= max) return text;
       let t = text;
       while (t.length > 1 && x.measureText(`${t}…`).width > max) t = t.slice(0, -1);
       return `${t.trimEnd()}…`;
     };
-    const cell = (text, xPos, align, weight, baseline) => {
-      x.textAlign = align;
-      x.font = `${weight} 26px ${FONT}`;
+    const money = (text, xPos, weight, size, baseline, color = C.ink) => {
+      x.textAlign = "right";
+      x.fillStyle = color;
+      fitFont(x, text, weight, size, 14, FONT, COLW);
       x.fillText(text, xPos, baseline);
     };
     const rule = (color = C.line) => { x.fillStyle = color; x.fillRect(PAD, y - 1, inner, 2); };
     y += 64;
     fieldLabel(x, "Product", col.name, y);
     x.textAlign = "right";
-    fieldLabel(x, "Buying price", col.price, y);
-    fieldLabel(x, "Shipping", col.ship, y);
     fieldLabel(x, `Cost (${q.amountCur})`, col.cost, y);
+    fieldLabel(x, "Selling (each)", col.unit, y);
+    fieldLabel(x, "Selling total", col.sell, y);
     x.textAlign = "left";
     y += 18;
     rule();
     for (const it of q.items) {
+      x.textAlign = "left";
       x.fillStyle = C.ink;
       x.font = `600 26px ${FONT}`;
-      cell(fit(it.name, NAME_MAX), col.name, "left", 600, y + 36);
+      x.fillText(fit(it.name, NAME_MAX), col.name, y + 36);
       x.fillStyle = C.muted;
       x.font = `400 20px ${FONT}`;
-      x.textAlign = "left";
-      x.fillText(fit(it.meta, NAME_MAX), col.name, y + 66);
-      x.fillStyle = C.ink;
-      cell(it.price, col.price, "right", 400, y + 48);
-      cell(it.ship, col.ship, "right", 400, y + 48);
-      cell(it.cost, col.cost, "right", 700, y + 48);
-      y += 84;
+      x.fillText(fit(it.meta || "", NAME_MAX), col.name, y + 64);
+      x.fillText(fit(it.costMeta || "", NAME_MAX), col.name, y + 90);
+      money(it.cost, col.cost, 400, 24, y + 48);
+      money(it.sellUnit, col.unit, 400, 24, y + 48);
+      money(it.markup || "", col.unit, 400, 18, y + 76, C.muted);
+      money(it.sell, col.sell, 700, 24, y + 48);
+      y += 106;
       rule();
     }
     // Totals row
+    x.textAlign = "left";
     x.fillStyle = C.ink;
-    cell("All products", col.name, "left", 700, y + 40);
-    cell(q.totals.price, col.price, "right", 700, y + 40);
-    cell(q.totals.ship, col.ship, "right", 700, y + 40);
-    cell(q.totals.cost, col.cost, "right", 700, y + 40);
+    x.font = `700 26px ${FONT}`;
+    x.fillText("All products", col.name, y + 40);
+    money(q.totals.cost, col.cost, 700, 24, y + 40);
+    money(q.totals.sell, col.sell, 700, 24, y + 40);
     y += 60;
     if (q.shippingNote) {
       x.fillStyle = C.muted;
@@ -137,31 +143,32 @@
       x.textAlign = "left";
       for (const line of wrap(x, q.shippingNote, inner)) { y += 30; x.fillText(line, PAD, y); }
     }
-    x.textAlign = "left";
 
-    // Total: thin rule, then right-aligned label / amount / converted amount
+    // Summary: thin rule, then right-aligned label + amount lines
     y += 36;
     rule();
-    y += 44;
-    x.textAlign = "right";
-    fieldLabel(x, q.totalLabel, W - PAD, y);
-    y += 60;
-    x.fillStyle = C.ink;
-    fitFont(x, q.primary, 800, 52, 30, FONT, inner);
-    x.fillText(q.primary, W - PAD, y);
-    if (q.secondary) {
-      y += 40;
+    const sumLine = (label, value, size, weight, color, gap) => {
+      y += gap;
+      x.textAlign = "right";
+      x.fillStyle = color;
+      fitFont(x, value, weight, size, Math.min(size, 26), FONT, inner * 0.6);
+      const w = x.measureText(value).width;
+      x.fillText(value, W - PAD, y);
       x.fillStyle = C.muted;
-      x.font = `400 26px ${FONT}`;
-      x.fillText(q.secondary, W - PAD, y);
-    }
+      x.font = `400 24px ${FONT}`;
+      x.fillText(label, W - PAD - w - 24, y);
+    };
+    sumLine("Total cost", q.totals.cost, 30, 600, C.ink, 52);
+    sumLine("Selling total", q.totals.sell, 50, 800, C.ink, 68);
+    const neg = String(q.profit).trim().startsWith("-");
+    sumLine("Profit", q.profit, 30, 700, neg ? "#b42318" : "#067647", 52);
     x.textAlign = "left";
 
     if (q.fxLine) {
       y += 52;
       x.fillStyle = C.muted;
       x.font = `400 22px ${FONT}`;
-      x.fillText(`Exchange rate: ${q.fxLine}`, PAD, y);
+      x.fillText(q.fxLine, PAD, y);
     }
 
     if (q.note) {
@@ -245,25 +252,24 @@
   }
 
   /** One-line caption sent alongside the quote image. */
-  const caption = (q) => `${q.brand ? q.brand + " – " : ""}Cost estimate No. ${q.number}: ${q.items.length} product${q.items.length > 1 ? "s" : ""}, `
-    + `${q.weightText} · Total cost ${q.primary}${q.secondary ? ` (${q.secondary})` : ""}`;
+  const caption = (q) => `${q.brand} – Cost estimate No. ${q.number}: ${q.items.length} product${q.items.length === 1 ? "" : "s"}, `
+    + `${q.weightText} · Cost ${q.totals.cost} · Selling ${q.totals.sell}`;
 
   /** Full plain-text quote (Copy text / Email). */
   function text(q) {
     const lines = [
-      `${q.brand ? q.brand + " – " : ""}COST ESTIMATE No. ${q.number}`,
+      `${q.brand} – COST ESTIMATE No. ${q.number}`,
       ...(q.route ? [q.route] : []),
       `Date: ${q.dateText}`,
       `${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
       "",
-      ...q.items.map((it, i) => `${i + 1}. ${it.name} (${it.meta}): buying price ${it.price} + shipping ${it.ship} = ${it.cost}`),
+      ...q.items.map((it, i) => `${i + 1}. ${it.name} (${it.meta}): cost ${it.cost} · selling ${it.sellUnit} each (${it.markup}) · total ${it.sell}`),
       "",
-      `Buying price: ${q.totals.price}`,
-      `Shipping: ${q.totals.ship}${q.shippingNote ? ` (${q.shippingNote.toLowerCase()})` : ""}`,
-      `${q.totalLabel.toUpperCase()}: ${q.primary}`,
+      `Total cost: ${q.totals.cost}`,
+      `Selling total: ${q.totals.sell}`,
+      `Profit: ${q.profit}`,
     ];
-    if (q.secondary) lines.push(q.secondary);
-    if (q.fxLine) lines.push(`Exchange rate: ${q.fxLine}`);
+    if (q.fxLine) lines.push(q.fxLine);
     if (q.note) lines.push("", q.note);
     if (q.contact) lines.push("", q.contact);
     return lines.join("\n");

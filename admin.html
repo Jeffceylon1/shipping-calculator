@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Cost Calculator Admin</title>
+<title>Crown Way Global Admin</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2433; --muted:#6b7385; --accent:#1f5eff; --accent-soft:#f0f4ff; --line:#e3e6ec;
@@ -85,10 +85,6 @@
   details.box .sub-fields { grid-template-columns:repeat(3, 1fr); margin-top:10px; }
   .result { margin-top:16px; padding:16px; border-radius:12px; background:var(--accent-soft); }
   .result-top { display:flex; justify-content:space-between; align-items:center; }
-  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#fff; }
-  .seg[hidden] { display:none; }
-  .seg button { border:none; border-radius:0; padding:5px 14px; font-weight:600; }
-  .seg button.on { background:var(--accent); color:#fff; }
   .total { font-size:clamp(22px, 7.5vw, 32px); font-weight:700; margin:6px 0 0; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
   .muted { color:var(--muted); font-size:12px; }
   .free { color:var(--ok); font-weight:600; }
@@ -153,7 +149,7 @@
 <header class="topbar">
   <div class="topbar-inner">
     <div class="brand">
-      <h1>Cost Calculator Admin</h1>
+      <h1>Crown Way Global Admin</h1>
       <p>Changes go live when you publish</p>
     </div>
     <div class="toolbar">
@@ -262,7 +258,7 @@
       <div class="card-head"><div><h2>Quote details</h2><p>Shown on the customer page and on printed, saved and shared quotes.</p></div></div>
       <div class="fields two">
         <label class="f">Business name
-          <input id="s_businessName" type="text" placeholder="e.g. Lanka Express Cargo">
+          <input id="s_businessName" type="text" placeholder="Crown Way Global (used when blank)">
         </label>
         <label class="f">Contact
           <input id="s_contact" type="text" placeholder="e.g. WhatsApp +1 416 555 0100">
@@ -310,15 +306,10 @@
 
       <div class="result">
         <div class="result-top">
-          <span class="muted">Customer pays</span>
-          <div class="seg" id="curToggle">
-            <button type="button" data-cur="base">CAD</button>
-            <button type="button" data-cur="LKR">LKR</button>
-          </div>
+          <span class="muted">Customer pays for shipping</span>
         </div>
         <div class="total" id="total">-</div>
         <div class="muted" id="totalSub"></div>
-        <div class="muted" id="fxInfo" style="margin-top:4px"></div>
       </div>
       <table class="breakdown"><tbody id="breakdown"></tbody></table>
     </section>
@@ -331,7 +322,7 @@
 <script src="shared.js"></script>
 <script>
 (async () => {
-  const { num, round2, calculate, formatMoney, createCurrencyView } = Shipping;
+  const { num, round2, calculate, formatMoney } = Shipping;
   const $ = (id) => document.getElementById(id);
 
   // Admin token from the passcode login on the customer page (index.html).
@@ -380,8 +371,7 @@
   document.body.classList.remove("loading");
   const dirty = () => JSON.stringify(settings) !== saved;
 
-  const view = createCurrencyView({ toggle: $("curToggle"), getBase: () => settings.currency, onChange: () => render() });
-  const money = view.money;
+  const money = (n) => formatMoney(n, settings.currency);
   const kg = (n) => `${round2(n)} kg`;
 
   function toast(msg) {
@@ -455,7 +445,6 @@
 
     const base = settings.currency;
     document.querySelectorAll(".baseCur").forEach((el) => { el.textContent = base; });
-    $("fxInfo").textContent = view.sync();
 
     // Pricing equation (always in base currency: these are the admin's own numbers)
     const hiddenPerKg = settings.perKg * settings.hiddenPct / 100;
