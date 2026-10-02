@@ -468,10 +468,10 @@
     localStorage.removeItem(RATE_KEY);
     render();
   });
-  /** Rate box shows the live rate unless the user typed their own; the line under it says which. */
+  /** Rate box shows the user's own rate if they typed one, otherwise the live rate; the line under it says which. */
   function showRate() {
     const input = $("fxRate");
-    if (!ownRate && document.activeElement !== input) input.value = live ? live.rate.toFixed(2) : "";
+    if (document.activeElement !== input) input.value = ownRate ? String(ownRate) : live ? live.rate.toFixed(2) : "";
     const src = $("rateSrc");
     if (ownRate) {
       useLiveBtn.textContent = live ? `Use live rate (${live.rate.toFixed(2)})` : "Use live rate";
