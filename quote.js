@@ -37,10 +37,11 @@
   }
 
   /**
-   * q: { brand, route, from, to, number, dateText, countText, weightText, chargedText?,
+   * q: { brand, route?, number, dateText, countText, weightText, chargedText?,
    *      items: [{ name, meta, price, ship, cost }], totals: { price, ship, cost }, shippingNote?,
    *      amountCur, totalLabel, primary, secondary?, fxLine?, note?, contact? }
    * number: digits only (e.g. "1001"); shown as "No. 1001".
+   * route: the admin's destination name; "" hides it everywhere.
    */
   function drawQuote(q) {
     const draft = document.createElement("canvas");
@@ -58,9 +59,12 @@
     x.fillStyle = C.ink;
     fitFont(x, q.brand || "Cost Estimate", 700, 44, 28, FONT, inner * 0.62);
     x.fillText(q.brand || "Cost Estimate", PAD, y);
-    x.fillStyle = C.muted;
-    fitFont(x, q.brand ? `Cost estimate · ${q.route}` : q.route, 400, 24, 18, FONT, inner * 0.62);
-    x.fillText(q.brand ? `Cost estimate · ${q.route}` : q.route, PAD, y + 40);
+    const subtitle = [q.brand ? "Cost estimate" : "", q.route].filter(Boolean).join(" · ");
+    if (subtitle) {
+      x.fillStyle = C.muted;
+      fitFont(x, subtitle, 400, 24, 18, FONT, inner * 0.62);
+      x.fillText(subtitle, PAD, y + 40);
+    }
     x.textAlign = "right";
     x.fillStyle = C.ink;
     fitFont(x, `No. ${q.number}`, 700, 32, 22, FONT, inner * 0.34);
@@ -74,13 +78,8 @@
     x.fillRect(PAD, y, inner, 4);
     y += 4;
 
-    // Shipment details: two plain lines
+    // Shipment summary line
     y += 52;
-    const route = `From: ${q.from}   To: ${q.to}`;
-    x.fillStyle = C.ink;
-    fitFont(x, route, 400, 26, 18, FONT, inner);
-    x.fillText(route, PAD, y);
-    y += 40;
     const summary = `${q.countText} · ${q.weightText}${q.chargedText ? ` · charged as ${q.chargedText}` : ""}`;
     x.fillStyle = C.muted;
     fitFont(x, summary, 400, 24, 18, FONT, inner);
@@ -253,7 +252,7 @@
   function text(q) {
     const lines = [
       `${q.brand ? q.brand + " – " : ""}COST ESTIMATE No. ${q.number}`,
-      `${q.from} → ${q.to}`,
+      ...(q.route ? [q.route] : []),
       `Date: ${q.dateText}`,
       `${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
       "",

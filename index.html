@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f5eff">
-<title>Cost Calculator: Canada → Sri Lanka</title>
-<meta name="description" content="Work out the full cost of goods sent from Canada to Sri Lanka: buying price plus shipping, per product, in CAD or LKR.">
-<meta property="og:title" content="Cost Calculator: Canada → Sri Lanka">
+<title>Cost Calculator</title>
+<meta name="description" content="Work out the full cost of your goods: buying price plus shipping, per product, in CAD or LKR.">
+<meta property="og:title" content="Cost Calculator">
 <meta property="og:description" content="Buying price plus shipping, per product, in CAD or LKR. Print, save or send your estimate.">
 <meta property="og:type" content="website">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -186,7 +186,7 @@
 <main class="card">
   <div class="pane-input">
   <h1 id="title">Cost calculator</h1>
-  <p class="sub" id="route">Canada → Sri Lanka · buying price + shipping</p>
+  <p class="sub" id="route">Buying price + shipping</p>
 
   <form id="itemForm" autocomplete="off" novalidate>
     <label class="field"><span>Product name</span>
@@ -318,7 +318,6 @@
 (async () => {
   const $ = (id) => document.getElementById(id);
   const TOKEN_KEY = "shippingAdminToken"; // shared with admin.html
-  const ROUTE = "Canada → Sri Lanka";
 
   // Admin login (works even if rates fail to load)
   const loginSheet = $("loginSheet");
@@ -386,7 +385,13 @@
 
   // Static page setup from published rates
   if (rates.businessName) { $("title").textContent = rates.businessName; document.title = `${rates.businessName}: Cost Calculator`; }
-  $("route").textContent = rates.businessName ? `Cost calculator · ${ROUTE}` : `${ROUTE} · buying price + shipping`;
+  /** Destination name the admin gave the selected zone; blank means no route is shown anywhere. */
+  const routeName = () => (rates.zones[Number($("zone").value) || 0]?.name || "").trim();
+  function subtitle() {
+    const route = routeName();
+    if (rates.businessName) return route ? `Cost calculator · ${route}` : "Cost calculator";
+    return route ? `${route} · buying price + shipping` : "Buying price + shipping";
+  }
   $("note").textContent = rates.quoteNote || "";
   $("contact").textContent = rates.contact || "";
   if (rates.zones.length > 1) {
@@ -510,6 +515,7 @@
   }
 
   function render() {
+    $("route").textContent = subtitle();
     $("fxInfo").textContent = view.sync();
     const c = costing();
     for (const id of ["printBtn", "imageBtn", "pdfBtn", "shareBtn"]) $(id).disabled = !c;
@@ -569,9 +575,7 @@
     const when = { dateStyle: "medium", timeStyle: "short" };
     return {
       brand: rates.businessName || "",
-      route: ROUTE,
-      from: "Canada",
-      to: rates.zones.length > 1 ? `Sri Lanka · ${r.zone.name}` : "Sri Lanka",
+      route: routeName(),
       number: String(n),
       dateText: now.toLocaleString(undefined, when),
       countText: `${items.length} product${items.length > 1 ? "s" : ""} (${pcs} pcs)`,
