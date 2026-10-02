@@ -146,7 +146,8 @@
     x.strokeRect(PAD, gridTop, inner, y - gridTop);
 
     // Products table: Product | Weight (each) | Qty | Total weight | Amount
-    const col = { name: PAD + 18, unit: PAD + 560, qty: PAD + 625, weight: PAD + 790, amount: W - PAD - 18 };
+    const col = { name: PAD + 18, unit: PAD + 480, qty: PAD + 545, weight: PAD + 720, amount: W - PAD - 18 };
+    const NAME_MAX = 330;
     const cell = (text, xPos, align, weight = 400) => {
       x.textAlign = align;
       x.font = `${weight} 26px ${FONT}`;
@@ -170,8 +171,8 @@
       x.fillStyle = C.ink;
       x.font = `600 26px ${FONT}`;
       let name = it.name;
-      if (x.measureText(name).width > 360) {
-        while (name.length > 1 && x.measureText(`${name}…`).width > 360) name = name.slice(0, -1);
+      if (x.measureText(name).width > NAME_MAX) {
+        while (name.length > 1 && x.measureText(`${name}…`).width > NAME_MAX) name = name.slice(0, -1);
         name = `${name.trimEnd()}…`;
       }
       cell(name, col.name, "left", 600);
