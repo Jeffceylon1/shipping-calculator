@@ -56,7 +56,7 @@
   .cancel-btn[hidden] { display:none; }
 
   /* Products table */
-  .items { margin:20px 0 6px; }
+  .items { margin:20px 0 6px; overflow-x:auto; }
   .items[hidden], .empty-hint[hidden] { display:none; }
   .items-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
   .items-head h2 { margin:0; font-size:16px; }
@@ -87,9 +87,14 @@
   .money-input input:first-child { border-radius:10px 0 0 10px; }
   @media (max-width: 480px) {
     .row2 { grid-template-columns:1fr; gap:0; }
-    .items-table .c-sunit { display:none; }
+    .items-table .c-sunit, .items-table .c-cost { display:none; }
+    .items-table .cost-inline { display:inline; font-weight:600; color:var(--ink); }
     .items-table .sell-each { display:block; }
   }
+  .items-table .cost-inline { display:none; }
+  .rate-src { margin:-6px 0 12px; font-size:12px; color:var(--muted); }
+  .rate-src[hidden] { display:none; }
+  .rate-src button { border:none; background:none; padding:0; font:inherit; font-weight:600; color:var(--accent); text-decoration:underline; cursor:pointer; }
 
   .result { margin-top:4px; padding:20px 16px; border-radius:14px; background:var(--accent-soft); text-align:center; }
   .seg { display:inline-flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; background:#fff; margin-bottom:12px; }
@@ -271,11 +276,11 @@
       <button type="button" class="link-btn" id="clearItems">Clear all</button>
     </div>
     <table class="items-table">
-      <thead><tr><th>Product</th><th class="c-price num">Buying price</th><th class="c-ship num">Shipping</th><th class="num">Cost</th>
+      <thead><tr><th>Product</th><th class="c-price num">Buying price</th><th class="c-ship num">Shipping</th><th class="c-cost num">Cost</th>
         <th class="c-sunit num">Selling (each)</th><th class="num">Selling total</th><th></th></tr></thead>
       <tbody id="itemRows"></tbody>
       <tfoot><tr><td>Total<span class="sub-line" id="sumMeta"></span></td><td class="c-price num" id="sumPrice"></td><td class="c-ship num" id="sumShip"></td>
-        <td class="num" id="sumCost"></td><td class="c-sunit"></td><td class="num" id="sumSell"></td><td></td></tr></tfoot>
+        <td class="c-cost num" id="sumCost"></td><td class="c-sunit"></td><td class="num" id="sumSell"></td><td></td></tr></tfoot>
     </table>
     <p class="items-hint">Tap a product to change it.</p>
   </section>
@@ -290,6 +295,7 @@
     <label class="rate-row" id="rateRow">1 <span class="baseCur">CAD</span> =
       <input id="fxRate" type="number" min="0" step="any" inputmode="decimal" placeholder="Rate" aria-label="Exchange rate in LKR"> LKR
     </label>
+    <div class="rate-src" id="rateSrc"></div>
     <label class="rate-row date-row">Date <input id="quoteDate" type="date" aria-label="Estimate date"></label>
     <div class="label" id="totalLabel">Total cost</div>
     <div class="total" id="total">-</div>
@@ -444,27 +450,77 @@
   }
   document.querySelectorAll(".baseCur").forEach((el) => { el.textContent = base; });
 
-  // ---- Currency: the billing currency, or LKR at an exchange rate the user types in (no live rates) ----
-  const RATE_KEY = "cwgRate.v1";
+  // ---- Currency: the billing currency, or LKR at the live rate (default) or a rate the user types in ----
+  const RATE_KEY = "cwgRate.v1"; // the user's own rate; empty = use the live rate
   const DISPLAY_KEY = "cwgDisplay.v1";
   const sameCurrency = base === "LKR";
-  let fxRate = num(localStorage.getItem(RATE_KEY));
+  let ownRate = num(localStorage.getItem(RATE_KEY));
+  let live = null; // { rate, at, source }
+  let liveFailed = false;
   let display = localStorage.getItem(DISPLAY_KEY) === "LKR" ? "LKR" : "base";
-  $("curToggle").hidden = sameCurrency;
-  $("rateRow").hidden = sameCurrency;
-  if (fxRate) $("fxRate").value = fxRate;
-  $("fxRate").addEventListener("input", () => {
-    fxRate = num($("fxRate").value);
-    localStorage.setItem(RATE_KEY, fxRate ? String(fxRate) : "");
+  const currentRate = () => ownRate || live?.rate || 0;
+  for (const id of ["curToggle", "rateRow", "rateSrc"]) $(id).hidden = sameCurrency;
+
+  const useLiveBtn = document.createElement("button");
+  useLiveBtn.type = "button";
+  useLiveBtn.addEventListener("click", () => {
+    ownRate = 0;
+    localStorage.removeItem(RATE_KEY);
     render();
   });
+  /** Rate box shows the live rate unless the user typed their own; the line under it says which. */
+  function showRate() {
+    const input = $("fxRate");
+    if (!ownRate && document.activeElement !== input) input.value = live ? live.rate.toFixed(2) : "";
+    const src = $("rateSrc");
+    if (ownRate) {
+      useLiveBtn.textContent = live ? `Use live rate (${live.rate.toFixed(2)})` : "Use live rate";
+      src.replaceChildren("Your rate · ", useLiveBtn);
+    } else if (live) {
+      src.textContent = `Live rate · updated ${new Date(live.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} · ${live.source}`;
+    } else {
+      src.textContent = liveFailed ? "Couldn't load the live rate. Type a rate." : "Loading live rate…";
+    }
+  }
+
+  async function fetchLiveRate() {
+    if (sameCurrency) return;
+    const sources = [
+      ["Coinbase", async () => {
+        const res = await fetch(`https://api.coinbase.com/v2/exchange-rates?currency=${base}`, { cache: "no-store" });
+        return parseFloat((await res.json()).data.rates.LKR);
+      }],
+      ["ExchangeRate-API", async () => {
+        const res = await fetch(`https://open.er-api.com/v6/latest/${base}`, { cache: "no-store" });
+        return parseFloat((await res.json()).rates.LKR);
+      }],
+    ];
+    for (const [source, get] of sources) {
+      try {
+        const rate = await get();
+        if (rate > 0) { live = { rate, at: Date.now(), source }; liveFailed = false; render(); return; }
+      } catch {}
+    }
+    liveFailed = !live;
+    render();
+  }
+  // Keep the live rate current while the page is open (every 5 minutes, and when coming back to the tab).
+  setInterval(() => { if (!document.hidden) fetchLiveRate(); }, 5 * 60_000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) fetchLiveRate(); });
+
+  $("fxRate").addEventListener("input", () => {
+    ownRate = num($("fxRate").value);
+    localStorage.setItem(RATE_KEY, ownRate ? String(ownRate) : "");
+    render();
+  });
+  $("fxRate").addEventListener("blur", showRate); // an emptied box goes back to the live rate
   $("curToggle").addEventListener("click", (e) => {
     const cur = e.target.closest("[data-cur]")?.dataset.cur;
     if (!cur) return;
     display = cur === "LKR" ? "LKR" : "base";
     localStorage.setItem(DISPLAY_KEY, display);
     render();
-    if (display === "LKR" && !fxRate) $("fxRate").focus();
+    if (display === "LKR" && !currentRate()) $("fxRate").focus();
   });
   const DATE_KEY = "cwgDate.v1";
   const now = new Date();
@@ -482,8 +538,8 @@
   };
   $("quoteDate").addEventListener("change", onDate);
   $("quoteDate").addEventListener("input", onDate);
-  /** LKR when chosen and a rate has been entered, otherwise the billing currency. */
-  const displayCurrency = () => (display === "LKR" && fxRate > 0 && !sameCurrency ? { cur: "LKR", rate: fxRate } : { cur: base, rate: 1 });
+  /** LKR when chosen and a rate is available (own or live), otherwise the billing currency. */
+  const displayCurrency = () => (display === "LKR" && currentRate() > 0 && !sameCurrency ? { cur: "LKR", rate: currentRate() } : { cur: base, rate: 1 });
 
   // ---- Products (kept in this browser so a refresh doesn't lose the list) ----
   const ITEMS_KEY = "shippingItems.v1";
@@ -588,14 +644,15 @@
       const tr = document.createElement("tr");
       tr.dataset.id = it.id;
       tr.classList.toggle("editing", it.id === editingId);
-      tr.innerHTML = `<td><div class="item-name"></div><div class="item-meta"></div><div class="item-meta meta-cost"></div></td>`
-        + `<td class="c-price num"><span></span><span class="sub-line"></span></td><td class="c-ship num"></td><td class="num"></td>`
+      tr.innerHTML = `<td><div class="item-name"></div><div class="item-meta"></div><div class="item-meta meta-cost"><span></span><span class="cost-inline"></span></div></td>`
+        + `<td class="c-price num"><span></span><span class="sub-line"></span></td><td class="c-ship num"></td><td class="c-cost num"></td>`
         + `<td class="c-sunit num"><span></span><span class="sub-line"></span></td>`
         + `<td class="num"><b></b><span class="sub-line sell-each"></span></td>`
         + `<td><button type="button" class="remove"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
       tr.querySelector(".item-name").textContent = it.name;
       tr.querySelector(".item-meta").textContent = metaText(it);
-      tr.querySelector(".meta-cost").textContent = `Buying ${fmt(price, cur)} + shipping ${fmt(ship, cur)}`;
+      tr.querySelector(".meta-cost").children[0].textContent = `Buying ${fmt(price, cur)} + shipping ${fmt(ship, cur)}`;
+      tr.querySelector(".cost-inline").textContent = ` = ${fmt(cost, cur)}`;
       const cells = tr.children;
       cells[1].children[0].textContent = fmt(price, cur);
       cells[1].children[1].textContent = it.qty > 1 ? `${fmt(unitPrice, cur)} each` : "";
@@ -620,7 +677,8 @@
   function render() {
     $("route").textContent = subtitle();
     for (const b of $("curToggle").children) b.classList.toggle("on", (b.dataset.cur === "LKR") === (display === "LKR"));
-    const needRate = display === "LKR" && !fxRate && !sameCurrency;
+    const needRate = display === "LKR" && !currentRate() && !sameCurrency;
+    if (!sameCurrency) showRate();
     $("rateRow").classList.toggle("need", needRate);
     const c = costing();
     for (const id of ["printBtn", "imageBtn", "pdfBtn", "shareBtn"]) $(id).disabled = !c;
@@ -699,7 +757,9 @@
       profit: profitText(c.totals, cur),
       shippingNote: r.free ? "Free shipping applied" : parts.length ? `Shipping includes ${parts.join(", ")}` : "",
       amountCur: cur,
-      fxLine: cur === "LKR" ? `Exchange rate used: 1 ${base} = ${trim(rate)} LKR` : "",
+      fxLine: cur === "LKR"
+        ? `Exchange rate used: 1 ${base} = ${trim(rate)} LKR (${ownRate ? "own rate" : `live rate, ${new Date(live.at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`})`
+        : "",
       note: rates.quoteNote || "",
       contact: rates.contact || "",
     };
@@ -921,6 +981,7 @@
 
   window.addEventListener("resize", fitTotal);
   render();
+  fetchLiveRate();
 })();
 </script>
 </body>
