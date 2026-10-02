@@ -511,6 +511,11 @@
   $("fxRate").addEventListener("input", () => {
     ownRate = num($("fxRate").value);
     localStorage.setItem(RATE_KEY, ownRate ? String(ownRate) : "");
+    // The rate only matters in LKR, so changing it switches the view there and every product updates on screen.
+    if (ownRate && display !== "LKR") {
+      display = "LKR";
+      localStorage.setItem(DISPLAY_KEY, display);
+    }
     render();
   });
   $("fxRate").addEventListener("blur", showRate); // an emptied box goes back to the live rate
@@ -697,7 +702,10 @@
     const summary = `${items.length} product${items.length > 1 ? "s" : ""} · ${weightText(c.kg)}`
       + (c.r.free ? " · free shipping" : c.r.chargeablePer > c.kg + 1e-9 ? ` · charged as ${weightText(c.r.chargeablePer)}` : "");
     detail.textContent = `Products ${fmt(c.totals.price, c.cur)} + Shipping ${fmt(c.totals.ship, c.cur)}\n${summary}`
-      + (needRate ? "\nEnter the exchange rate to see LKR" : "");
+      + (needRate ? "\nEnter the exchange rate to see LKR" : "")
+      + (c.cur === base && currentRate() && !sameCurrency
+        ? `\n≈ ${formatMoney(c.totals.cost / 100 * currentRate(), "LKR")} cost · ≈ ${formatMoney(c.totals.sell / 100 * currentRate(), "LKR")} selling`
+        : "");
     detail.classList.toggle("free", c.r.free);
     $("summary").hidden = false;
     $("sellTotal").textContent = fmt(c.totals.sell, c.cur);
