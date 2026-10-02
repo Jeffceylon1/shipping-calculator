@@ -78,10 +78,10 @@
   .items-hint { margin:8px 0 0; font-size:12px; color:var(--muted); }
   .empty-hint { margin:18px 0 6px; padding:16px; border:1px dashed var(--line); border-radius:12px; font-size:14px; color:var(--muted); text-align:center; }
   .item-meta { font-size:12px; color:var(--muted); }
-  .cost-ship { display:none; }
+  .items-table .cost-ship { display:none; }
   @media (max-width: 560px) {
     .items-table .c-price, .items-table .c-ship { display:none; }
-    .cost-ship { display:block; }
+    .items-table .cost-ship { display:block; }
   }
   @media (max-width: 480px) {
     .row2 { grid-template-columns:1fr; gap:0; }
@@ -162,7 +162,7 @@
     .pane-result { position:sticky; top:16px; }
     .result { margin-top:0; }
     .items-table .c-price, .items-table .c-ship { display:table-cell; }
-    .cost-ship { display:none; }
+    .items-table .cost-ship { display:none; }
   }
   @media (min-width: 700px) and (max-height: 560px) {
     body { justify-content:flex-start; }
@@ -530,6 +530,20 @@
     detail.classList.toggle("free", c.r.free);
   }
 
+  /** Simple receipt number: new per changed shipment, stable when re-exporting the same list. */
+  const NUMBER_KEY = "shippingEstimateNo.v1";
+  let memNumber = { last: 1000, sig: "", n: 1000 };
+  function receiptNumber() {
+    const sig = JSON.stringify([items.map((it) => [it.name, it.weight, it.unit, it.qty, it.price]), Number($("zone").value) || 0]);
+    let st = memNumber;
+    try { st = JSON.parse(localStorage.getItem(NUMBER_KEY)) || st; } catch {}
+    if (st.sig === sig && st.n) return st.n;
+    const n = (Number(st.last) || 1000) + 1;
+    memNumber = { last: n, sig, n };
+    try { localStorage.setItem(NUMBER_KEY, JSON.stringify(memNumber)); } catch {}
+    return n;
+  }
+
   /** Snapshot of the current estimate for export/share. Null when there are no products. */
   function buildQuote() {
     const c = costing();
@@ -551,16 +565,16 @@
 
     const pcs = items.reduce((sum, it) => sum + it.qty, 0);
     const now = new Date();
-    const pad = (n) => String(n).padStart(2, "0");
+    const n = receiptNumber();
     const when = { dateStyle: "medium", timeStyle: "short" };
     return {
       brand: rates.businessName || "",
       route: ROUTE,
       from: "Canada",
       to: rates.zones.length > 1 ? `Sri Lanka · ${r.zone.name}` : "Sri Lanka",
-      id: `Q-${String(now.getFullYear()).slice(2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`,
+      number: String(n),
       dateText: now.toLocaleString(undefined, when),
-      countText: `${items.length} (${pcs} pcs)`,
+      countText: `${items.length} product${items.length > 1 ? "s" : ""} (${pcs} pcs)`,
       weightText: weightText(c.kg),
       chargedText: r.chargeablePer > c.kg + 1e-9 ? weightText(r.chargeablePer) : "",
       items: c.rows.map(({ it, unitPrice, price, ship, cost }) => ({
@@ -696,11 +710,11 @@
     window.print();
   }));
   $("imageBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
-    Quote.download(await Quote.toBlob(canvas, "image/png"), `${q.id}.png`);
+    Quote.download(await Quote.toBlob(canvas, "image/png"), `estimate-${q.number}.png`);
     toast("Image saved");
   }));
   $("pdfBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
-    Quote.download(await Quote.toPdfBlob(canvas), `${q.id}.pdf`);
+    Quote.download(await Quote.toPdfBlob(canvas), `estimate-${q.number}.pdf`);
     toast("PDF saved");
   }));
 
@@ -726,7 +740,7 @@
   $("shareBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
     const blob = await Quote.toBlob(canvas, "image/png");
     if (sending) URL.revokeObjectURL(sending.previewUrl);
-    sending = { q, canvas, blob, file: new File([blob], `${q.id}.png`, { type: "image/png" }), previewUrl: URL.createObjectURL(blob) };
+    sending = { q, canvas, blob, file: new File([blob], `estimate-${q.number}.png`, { type: "image/png" }), previewUrl: URL.createObjectURL(blob) };
     $("quotePreview").src = sending.previewUrl;
     sheet.showModal();
   }));
@@ -739,7 +753,7 @@
     const { q, blob, file } = sending;
     try {
       if (canShareFiles) {
-        await navigator.share({ files: [file], text: Quote.caption(q), title: `Cost estimate ${q.id}` });
+        await navigator.share({ files: [file], text: Quote.caption(q), title: `Cost estimate No. ${q.number}` });
         sheet.close();
         return;
       }
@@ -747,7 +761,7 @@
         await copyImage();
         toast("Quote image copied. Paste it into the WhatsApp chat.");
       } else {
-        Quote.download(blob, `${q.id}.png`);
+        Quote.download(blob, `estimate-${q.number}.png`);
         toast("Quote image saved. Attach it in WhatsApp.");
       }
       window.open(`https://wa.me/?text=${encodeURIComponent(Quote.caption(q))}`, "_blank", "noopener");
@@ -762,8 +776,8 @@
     const { q, canvas, blob } = sending;
     try {
       if (action === "copyImage") { await copyImage(); toast("Image copied. Paste it into any chat."); }
-      if (action === "saveImage") { Quote.download(blob, `${q.id}.png`); toast("Image saved"); }
-      if (action === "savePdf") { Quote.download(await Quote.toPdfBlob(canvas), `${q.id}.pdf`); toast("PDF saved"); }
+      if (action === "saveImage") { Quote.download(blob, `estimate-${q.number}.png`); toast("Image saved"); }
+      if (action === "savePdf") { Quote.download(await Quote.toPdfBlob(canvas), `estimate-${q.number}.pdf`); toast("PDF saved"); }
       if (action === "copyText") { await navigator.clipboard.writeText(Quote.text(q)); toast("Quote text copied"); }
     } catch {
       toast("Something went wrong. Please try again.");

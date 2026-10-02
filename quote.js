@@ -1,42 +1,9 @@
-// Quote document (waybill style) for the customer page: one canvas design feeds print, PNG, PDF and share.
+// Cost estimate document (simple receipt style) for the customer page: one canvas design feeds print, PNG, PDF and share.
 (function (global) {
   const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
-  const MONO = '"SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
-  const C = { accent: "#1f5eff", ink: "#1d2433", muted: "#667085", line: "#d0d5dd", band: "#f5f6f8", soft: "#f0f4ff", ok: "#067647" };
+  const C = { accent: "#1f5eff", ink: "#1d2433", muted: "#667085", line: "#d0d5dd" };
   const W = 1080;
   const PAD = 56;
-
-  // Code 128 bar patterns for symbol values 0–106 (1 = bar module, 0 = space). Table from JsBarcode.
-  const BARS = ("11011001100 11001101100 11001100110 10010011000 10010001100 10001001100 10011001000 10011000100 "
-    + "10001100100 11001001000 11001000100 11000100100 10110011100 10011011100 10011001110 10111001100 "
-    + "10011101100 10011100110 11001110010 11001011100 11001001110 11011100100 11001110100 11101101110 "
-    + "11101001100 11100101100 11100100110 11101100100 11100110100 11100110010 11011011000 11011000110 "
-    + "11000110110 10100011000 10001011000 10001000110 10110001000 10001101000 10001100010 11010001000 "
-    + "11000101000 11000100010 10110111000 10110001110 10001101110 10111011000 10111000110 10001110110 "
-    + "11101110110 11010001110 11000101110 11011101000 11011100010 11011101110 11101011000 11101000110 "
-    + "11100010110 11101101000 11101100010 11100011010 11101111010 11001000010 11110001010 10100110000 "
-    + "10100001100 10010110000 10010000110 10000101100 10000100110 10110010000 10110000100 10011010000 "
-    + "10011000010 10000110100 10000110010 11000010010 11001010000 11110111010 11000010100 10001111010 "
-    + "10100111100 10010111100 10010011110 10111100100 10011110100 10011110010 11110100100 11110010100 "
-    + "11110010010 11011011110 11011110110 11110110110 10101111000 10100011110 10001011110 10111101000 "
-    + "10111100010 11110101000 11110100010 10111011110 10111101110 11101011110 11110101110 11010000100 "
-    + "11010010000 11010011100 1100011101011").split(" ");
-  const START_B = 104;
-  const STOP = 106;
-
-  /** Code 128 set B module string for printable ASCII text. */
-  function code128B(text) {
-    const values = [START_B];
-    let checksum = START_B;
-    [...text].forEach((ch, i) => {
-      const v = ch.charCodeAt(0) - 32;
-      if (v < 0 || v > 95) throw new Error(`Barcode cannot encode "${ch}"`);
-      values.push(v);
-      checksum += v * (i + 1);
-    });
-    values.push(checksum % 103, STOP);
-    return values.map((v) => BARS[v]).join("");
-  }
 
   function wrap(ctx, text, maxWidth) {
     const lines = [];
@@ -70,84 +37,58 @@
   }
 
   /**
-   * q: { brand, route, from, to, id, dateText, countText, weightText, chargedText?,
+   * q: { brand, route, from, to, number, dateText, countText, weightText, chargedText?,
    *      items: [{ name, meta, price, ship, cost }], totals: { price, ship, cost }, shippingNote?,
    *      amountCur, totalLabel, primary, secondary?, fxLine?, note?, contact? }
+   * number: digits only (e.g. "1001"); shown as "No. 1001".
    */
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2200 + q.items.length * 84;
+    draft.height = 2000 + q.items.length * 84;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
     x.textBaseline = "alphabetic";
     const inner = W - PAD * 2;
 
-    // Header band: business left, quote number right
-    const headH = 176;
-    x.fillStyle = C.accent;
-    x.fillRect(0, 0, W, headH);
+    // Header: business + route left, receipt number + date right
+    let y = PAD + 44;
     x.textAlign = "left";
-    x.fillStyle = "#fff";
-    fitFont(x, q.brand || "Cost Estimate", 700, 46, 28, FONT, inner * 0.58);
-    x.fillText(q.brand || "Cost Estimate", PAD, 84);
-    x.globalAlpha = 0.85;
-    x.font = `400 26px ${FONT}`;
-    x.fillText(q.brand ? `Cost estimate · ${q.route}` : `${q.route} · buying price + shipping`, PAD, 128);
-    x.globalAlpha = 1;
-    x.textAlign = "right";
-    fieldLabel(x, "Quote no.", W - PAD, 76, "rgba(255,255,255,.8)");
-    x.fillStyle = "#fff";
-    x.font = `700 30px ${MONO}`;
-    x.fillText(q.id, W - PAD, 120);
-    x.textAlign = "left";
-
-    // Barcode of the quote number
-    let y = headH + 40;
-    const module = 3;
-    const bits = code128B(q.id);
-    const bx = Math.round((W - bits.length * module) / 2);
     x.fillStyle = C.ink;
-    for (let i = 0; i < bits.length; i++) if (bits[i] === "1") x.fillRect(bx + i * module, y, module, 104);
-    y += 104 + 34;
-    x.textAlign = "center";
-    x.font = `500 24px ${MONO}`;
-    x.letterSpacing = "6px";
-    x.fillText(q.id, W / 2, y);
-    x.letterSpacing = "0px";
+    fitFont(x, q.brand || "Cost Estimate", 700, 44, 28, FONT, inner * 0.62);
+    x.fillText(q.brand || "Cost Estimate", PAD, y);
+    x.fillStyle = C.muted;
+    fitFont(x, q.brand ? `Cost estimate · ${q.route}` : q.route, 400, 24, 18, FONT, inner * 0.62);
+    x.fillText(q.brand ? `Cost estimate · ${q.route}` : q.route, PAD, y + 40);
+    x.textAlign = "right";
+    x.fillStyle = C.ink;
+    fitFont(x, `No. ${q.number}`, 700, 32, 22, FONT, inner * 0.34);
+    x.fillText(`No. ${q.number}`, W - PAD, y);
+    x.fillStyle = C.muted;
+    x.font = `400 24px ${FONT}`;
+    x.fillText(q.dateText, W - PAD, y + 40);
     x.textAlign = "left";
-    y += 34;
+    y += 72;
+    x.fillStyle = C.accent;
+    x.fillRect(PAD, y, inner, 4);
+    y += 4;
 
-    // Shipment details grid (waybill boxes)
-    const cellH = 112;
-    const rows = [
-      [["From", q.from], ["To", q.to]],
-      [["Date", q.dateText], ["Products", q.countText], ["Total weight", q.weightText],
-        ...(q.chargedText ? [["Charged weight", q.chargedText]] : [])],
-    ];
-    const gridTop = y;
-    x.strokeStyle = C.ink;
-    for (const row of rows) {
-      const cw = inner / row.length;
-      row.forEach(([label, value], i) => {
-        const cx = PAD + i * cw;
-        fieldLabel(x, label, cx + 18, y + 36);
-        x.fillStyle = C.ink;
-        fitFont(x, value, 700, 32, 20, FONT, cw - 36);
-        x.fillText(value, cx + 18, y + 84);
-        if (i) { x.lineWidth = 2; x.beginPath(); x.moveTo(cx, y); x.lineTo(cx, y + cellH); x.stroke(); }
-      });
-      y += cellH;
-      x.lineWidth = 2;
-      x.beginPath(); x.moveTo(PAD, y); x.lineTo(W - PAD, y); x.stroke();
-    }
-    x.lineWidth = 3;
-    x.strokeRect(PAD, gridTop, inner, y - gridTop);
+    // Shipment details: two plain lines
+    y += 52;
+    const route = `From: ${q.from}   To: ${q.to}`;
+    x.fillStyle = C.ink;
+    fitFont(x, route, 400, 26, 18, FONT, inner);
+    x.fillText(route, PAD, y);
+    y += 40;
+    const summary = `${q.countText} · ${q.weightText}${q.chargedText ? ` · charged as ${q.chargedText}` : ""}`;
+    x.fillStyle = C.muted;
+    fitFont(x, summary, 400, 24, 18, FONT, inner);
+    x.fillText(summary, PAD, y);
 
     // Products table: Product (name + weight × qty) | Buying price | Shipping | Cost
-    const col = { name: PAD + 18, price: PAD + 600, ship: PAD + 790, cost: W - PAD - 18 };
-    const NAME_MAX = 440;
+    const col = { name: PAD, price: PAD + 600, ship: PAD + 790, cost: W - PAD };
+    const NAME_MAX = 460;
     const fit = (text, max) => {
       if (x.measureText(text).width <= max) return text;
       let t = text;
@@ -159,17 +100,16 @@
       x.font = `${weight} 26px ${FONT}`;
       x.fillText(text, xPos, baseline);
     };
-    y += 36;
-    x.fillStyle = C.band;
-    x.fillRect(PAD, y, inner, 52);
-    fieldLabel(x, "Product", col.name, y + 33);
-    x.textAlign = "right";
-    fieldLabel(x, "Buying price", col.price, y + 33);
-    fieldLabel(x, "Shipping", col.ship, y + 33);
-    fieldLabel(x, `Cost (${q.amountCur})`, col.cost, y + 33);
-    x.textAlign = "left";
-    y += 52;
     const rule = (color = C.line) => { x.fillStyle = color; x.fillRect(PAD, y - 1, inner, 2); };
+    y += 64;
+    fieldLabel(x, "Product", col.name, y);
+    x.textAlign = "right";
+    fieldLabel(x, "Buying price", col.price, y);
+    fieldLabel(x, "Shipping", col.ship, y);
+    fieldLabel(x, `Cost (${q.amountCur})`, col.cost, y);
+    x.textAlign = "left";
+    y += 18;
+    rule();
     for (const it of q.items) {
       x.fillStyle = C.ink;
       x.font = `600 26px ${FONT}`;
@@ -192,71 +132,56 @@
     cell(q.totals.ship, col.ship, "right", 700, y + 40);
     cell(q.totals.cost, col.cost, "right", 700, y + 40);
     y += 60;
-    rule(C.ink);
     if (q.shippingNote) {
       x.fillStyle = C.muted;
       x.font = `400 22px ${FONT}`;
       x.textAlign = "left";
-      for (const line of wrap(x, q.shippingNote, inner - 36)) { y += 34; x.fillText(line, col.name, y); }
-      y += 18;
+      for (const line of wrap(x, q.shippingNote, inner)) { y += 30; x.fillText(line, PAD, y); }
     }
     x.textAlign = "left";
 
-    // Total
-    const totalH = q.secondary ? 148 : 108;
-    x.fillStyle = C.ink;
-    x.fillRect(PAD, y, inner, totalH);
-    fieldLabel(x, q.totalLabel, PAD + 24, y + 64, "rgba(255,255,255,.85)");
+    // Total: thin rule, then right-aligned label / amount / converted amount
+    y += 36;
+    rule();
+    y += 44;
     x.textAlign = "right";
-    x.fillStyle = "#fff";
-    fitFont(x, q.primary, 800, 54, 30, FONT, inner * 0.62);
-    x.fillText(q.primary, W - PAD - 24, y + 72);
+    fieldLabel(x, q.totalLabel, W - PAD, y);
+    y += 60;
+    x.fillStyle = C.ink;
+    fitFont(x, q.primary, 800, 52, 30, FONT, inner);
+    x.fillText(q.primary, W - PAD, y);
     if (q.secondary) {
-      x.globalAlpha = 0.85;
+      y += 40;
+      x.fillStyle = C.muted;
       x.font = `400 26px ${FONT}`;
-      x.fillText(q.secondary, W - PAD - 24, y + 118);
-      x.globalAlpha = 1;
+      x.fillText(q.secondary, W - PAD, y);
     }
     x.textAlign = "left";
-    y += totalH;
 
     if (q.fxLine) {
-      y += 42;
+      y += 52;
       x.fillStyle = C.muted;
       x.font = `400 22px ${FONT}`;
       x.fillText(`Exchange rate: ${q.fxLine}`, PAD, y);
     }
 
-    // Notes
     if (q.note) {
-      y += 44;
+      y += 16;
+      x.fillStyle = C.muted;
       x.font = `400 24px ${FONT}`;
-      const noteLines = wrap(x, q.note, inner - 36);
-      const boxH = 58 + noteLines.length * 34 + 12;
-      x.strokeStyle = C.line;
-      x.lineWidth = 2;
-      x.strokeRect(PAD, y, inner, boxH);
-      fieldLabel(x, "Notes", PAD + 18, y + 36);
-      x.fillStyle = C.ink;
-      x.font = `400 24px ${FONT}`;
-      noteLines.forEach((line, i) => x.fillText(line, PAD + 18, y + 72 + i * 34));
-      y += boxH;
+      for (const line of wrap(x, q.note, inner)) { y += 34; x.fillText(line, PAD, y); }
     }
 
-    // Footer band
-    y += 40;
-    x.font = `600 28px ${FONT}`;
-    const contactLines = q.contact ? wrap(x, q.contact, inner) : [];
-    const footH = 72 + contactLines.length * 40 + (contactLines.length ? 8 : 0);
-    x.fillStyle = C.band;
-    x.fillRect(0, y, W, footH);
-    let fy = y + 46;
+    // Contact + thank-you
+    y += 24;
     x.fillStyle = C.ink;
-    for (const line of contactLines) { x.fillText(line, PAD, fy); fy += 40; }
+    x.font = `700 28px ${FONT}`;
+    for (const line of q.contact ? wrap(x, q.contact, inner) : []) { y += 40; x.fillText(line, PAD, y); }
+    y += 40;
     x.fillStyle = C.muted;
     x.font = `400 22px ${FONT}`;
-    x.fillText("Thank you for your business.", PAD, fy);
-    y += footH;
+    x.fillText("Thank you for your business.", PAD, y);
+    y += PAD;
 
     const out = document.createElement("canvas");
     out.width = W;
@@ -321,16 +246,16 @@
   }
 
   /** One-line caption sent alongside the quote image. */
-  const caption = (q) => `${q.brand ? q.brand + " – " : ""}Cost estimate ${q.id}: ${q.items.length} product${q.items.length > 1 ? "s" : ""}, `
+  const caption = (q) => `${q.brand ? q.brand + " – " : ""}Cost estimate No. ${q.number}: ${q.items.length} product${q.items.length > 1 ? "s" : ""}, `
     + `${q.weightText} · Total cost ${q.primary}${q.secondary ? ` (${q.secondary})` : ""}`;
 
   /** Full plain-text quote (Copy text / Email). */
   function text(q) {
     const lines = [
-      `${q.brand ? q.brand + " – " : ""}COST ESTIMATE ${q.id}`,
+      `${q.brand ? q.brand + " – " : ""}COST ESTIMATE No. ${q.number}`,
       `${q.from} → ${q.to}`,
       `Date: ${q.dateText}`,
-      `Products: ${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
+      `${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
       "",
       ...q.items.map((it, i) => `${i + 1}. ${it.name} (${it.meta}): buying price ${it.price} + shipping ${it.ship} = ${it.cost}`),
       "",
