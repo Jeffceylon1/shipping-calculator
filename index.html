@@ -78,8 +78,11 @@
   .items-hint { margin:8px 0 0; font-size:12px; color:var(--muted); }
   .empty-hint { margin:18px 0 6px; padding:16px; border:1px dashed var(--line); border-radius:12px; font-size:14px; color:var(--muted); text-align:center; }
   .item-meta { font-size:12px; color:var(--muted); }
-  /* Buying price and shipping get their own columns on wide screens; otherwise they show under the name. */
-  .items-table .c-price, .items-table .c-ship { display:none; }
+  /* Buying price, HST and shipping get their own columns on wide screens; otherwise they show under the name. */
+  .items-table .c-price, .items-table .c-hst, .items-table .c-ship { display:none; }
+  .check-row { display:flex; align-items:center; gap:10px; margin:-4px 0 16px; font-size:14px; font-weight:600; cursor:pointer; }
+  .check-row input { width:20px; height:20px; padding:0; accent-color:var(--accent); flex:none; }
+  .check-row small { font-weight:400; color:var(--muted); }
   .items-table .meta-cost { display:block; }
   .items-table .sell-each { display:none; }
   .row-half { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -187,7 +190,7 @@
     .pane-result { grid-area:result; position:sticky; top:16px; }
     .items-wrap { grid-area:items; }
     .result { margin-top:0; }
-    .items-table .c-price, .items-table .c-ship { display:table-cell; }
+    .items-table .c-price, .items-table .c-hst, .items-table .c-ship { display:table-cell; }
     .items-table .meta-cost { display:none; }
   }
   @media (min-width: 700px) and (max-height: 560px) {
@@ -242,6 +245,8 @@
         <input id="itemPrice" type="number" min="0" step="any" inputmode="decimal" placeholder="0.00" enterkeyhint="next">
       </div>
     </label>
+    <label class="check-row"><input type="checkbox" id="itemHst" checked> Add HST to buying price
+      <small>(<span class="hstPct">13</span>%; untick if the price already includes tax or is tax-free)</small></label>
     <div class="row-half">
       <label class="field"><span>Profit %</span>
         <div class="money-input">
@@ -276,10 +281,10 @@
       <button type="button" class="link-btn" id="clearItems">Clear all</button>
     </div>
     <table class="items-table">
-      <thead><tr><th>Product</th><th class="c-price num">Buying price</th><th class="c-ship num">Shipping</th><th class="c-cost num">Cost</th>
+      <thead><tr><th>Product</th><th class="c-price num">Buying price</th><th class="c-hst num">HST</th><th class="c-ship num">Shipping</th><th class="c-cost num">Cost</th>
         <th class="c-sunit num">Selling (each)</th><th class="num">Selling total</th><th></th></tr></thead>
       <tbody id="itemRows"></tbody>
-      <tfoot><tr><td>Total<span class="sub-line" id="sumMeta"></span></td><td class="c-price num" id="sumPrice"></td><td class="c-ship num" id="sumShip"></td>
+      <tfoot><tr><td>Total<span class="sub-line" id="sumMeta"></span></td><td class="c-price num" id="sumPrice"></td><td class="c-hst num" id="sumHst"></td><td class="c-ship num" id="sumShip"></td>
         <td class="c-cost num" id="sumCost"></td><td class="c-sunit"></td><td class="num" id="sumSell"></td><td></td></tr></tfoot>
     </table>
     <p class="items-hint">Tap a product to change it.</p>
@@ -296,6 +301,7 @@
       <input id="fxRate" type="number" min="0" step="any" inputmode="decimal" placeholder="Rate" aria-label="Exchange rate in LKR"> LKR
     </label>
     <div class="rate-src" id="rateSrc"></div>
+    <label class="rate-row">HST <input id="hstRate" type="number" min="0" step="any" inputmode="decimal" aria-label="HST percent"> %</label>
     <label class="rate-row date-row">Date <input id="quoteDate" type="date" aria-label="Estimate date"></label>
     <div class="label" id="totalLabel">Total cost</div>
     <div class="total" id="total">-</div>
@@ -454,6 +460,21 @@
   const RATE_KEY = "cwgRate.v1"; // the user's own rate; empty = use the live rate
   const DISPLAY_KEY = "cwgDisplay.v1";
   const sameCurrency = base === "LKR";
+
+  // ---- HST on buying prices (Ontario 13% by default; the user can change it) ----
+  const HST_KEY = "cwgHst.v1";
+  const storedHst = localStorage.getItem(HST_KEY);
+  let hstRate = storedHst === null ? 13 : num(storedHst);
+  const hstText = () => String(+hstRate.toFixed(3));
+  const showHstRate = () => document.querySelectorAll(".hstPct").forEach((el) => { el.textContent = hstText(); });
+  $("hstRate").value = hstText();
+  showHstRate();
+  $("hstRate").addEventListener("input", () => {
+    hstRate = Math.min(100, num($("hstRate").value));
+    localStorage.setItem(HST_KEY, String(hstRate));
+    showHstRate();
+    render();
+  });
   let ownRate = num(localStorage.getItem(RATE_KEY));
   let live = null; // { rate, at, source }
   let liveFailed = false;
@@ -566,6 +587,7 @@
           qty: Math.max(1, Math.min(MAX_QTY, Math.floor(num(it.qty)) || 1)),
           price: num(it.price),
           pct: num(it.pct),
+          hst: it.hst !== false,
           add: num(it.add),
         }));
     }
@@ -608,15 +630,16 @@
     const ship = splitByWeight(Math.round(r.total * rate * 100));
     const rows = items.map((it, i) => {
       const price = Math.round(it.price * it.qty * rate * 100);
-      const cost = price + ship[i];
+      const hst = it.hst ? Math.round(it.price * it.qty * (hstRate / 100) * rate * 100) : 0;
+      const cost = price + hst + ship[i];
       const sellUnit = Math.round((cost / it.qty) * (1 + it.pct / 100) + it.add * rate * 100);
       return {
-        it, price, ship: ship[i], cost, sellUnit, sell: sellUnit * it.qty,
+        it, price, hst, ship: ship[i], cost, sellUnit, sell: sellUnit * it.qty,
         unitPrice: Math.round(it.price * rate * 100), addUnit: Math.round(it.add * rate * 100),
       };
     });
     const sum = (key) => rows.reduce((total, row) => total + row[key], 0);
-    const totals = { price: sum("price"), ship: sum("ship"), cost: sum("cost"), sell: sum("sell") };
+    const totals = { price: sum("price"), hst: sum("hst"), ship: sum("ship"), cost: sum("cost"), sell: sum("sell") };
     return { r, kg, cur, rate, rows, goods, totals: { ...totals, profit: totals.sell - totals.cost } };
   }
 
@@ -650,23 +673,25 @@
       tr.dataset.id = it.id;
       tr.classList.toggle("editing", it.id === editingId);
       tr.innerHTML = `<td><div class="item-name"></div><div class="item-meta"></div><div class="item-meta meta-cost"><span></span><span class="cost-inline"></span></div></td>`
-        + `<td class="c-price num"><span></span><span class="sub-line"></span></td><td class="c-ship num"></td><td class="c-cost num"></td>`
+        + `<td class="c-price num"><span></span><span class="sub-line"></span></td><td class="c-hst num"></td><td class="c-ship num"></td><td class="c-cost num"></td>`
         + `<td class="c-sunit num"><span></span><span class="sub-line"></span></td>`
         + `<td class="num"><b></b><span class="sub-line sell-each"></span></td>`
         + `<td><button type="button" class="remove"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
       tr.querySelector(".item-name").textContent = it.name;
       tr.querySelector(".item-meta").textContent = metaText(it);
-      tr.querySelector(".meta-cost").children[0].textContent = `Buying ${fmt(price, cur)} + shipping ${fmt(ship, cur)}`;
+      tr.querySelector(".meta-cost").children[0].textContent =
+        `Buying ${fmt(price, cur)}${row.hst ? ` + HST ${fmt(row.hst, cur)}` : ""} + shipping ${fmt(ship, cur)}`;
       tr.querySelector(".cost-inline").textContent = ` = ${fmt(cost, cur)}`;
       const cells = tr.children;
       cells[1].children[0].textContent = fmt(price, cur);
       cells[1].children[1].textContent = it.qty > 1 ? `${fmt(unitPrice, cur)} each` : "";
-      cells[2].textContent = fmt(ship, cur);
-      cells[3].textContent = fmt(cost, cur);
-      cells[4].children[0].textContent = fmt(sellUnit, cur);
-      cells[4].children[1].textContent = markupText(row, cur);
-      cells[5].children[0].textContent = fmt(sell, cur);
-      cells[5].children[1].textContent = `${fmt(sellUnit, cur)} each\n${markupText(row, cur)}`;
+      cells[2].textContent = it.hst ? fmt(row.hst, cur) : "No HST";
+      cells[3].textContent = fmt(ship, cur);
+      cells[4].textContent = fmt(cost, cur);
+      cells[5].children[0].textContent = fmt(sellUnit, cur);
+      cells[5].children[1].textContent = markupText(row, cur);
+      cells[6].children[0].textContent = fmt(sell, cur);
+      cells[6].children[1].textContent = `${fmt(sellUnit, cur)} each\n${markupText(row, cur)}`;
       tr.querySelector(".remove").setAttribute("aria-label", `Remove ${it.name}`);
       return tr;
     }));
@@ -674,6 +699,7 @@
     $("itemCount").textContent = `(${items.length})`;
     $("sumMeta").textContent = `${pcs} pcs · ${weightText(c.kg)}`;
     $("sumPrice").textContent = fmt(c.totals.price, cur);
+    $("sumHst").textContent = fmt(c.totals.hst, cur);
     $("sumShip").textContent = fmt(c.totals.ship, cur);
     $("sumCost").textContent = fmt(c.totals.cost, cur);
     $("sumSell").textContent = fmt(c.totals.sell, cur);
@@ -701,7 +727,8 @@
     fitTotal();
     const summary = `${items.length} product${items.length > 1 ? "s" : ""} · ${weightText(c.kg)}`
       + (c.r.free ? " · free shipping" : c.r.chargeablePer > c.kg + 1e-9 ? ` · charged as ${weightText(c.r.chargeablePer)}` : "");
-    detail.textContent = `Products ${fmt(c.totals.price, c.cur)} + Shipping ${fmt(c.totals.ship, c.cur)}\n${summary}`
+    detail.textContent = `Products ${fmt(c.totals.price, c.cur)}${c.totals.hst ? ` + HST ${fmt(c.totals.hst, c.cur)}` : ""}`
+      + ` + Shipping ${fmt(c.totals.ship, c.cur)}\n${summary}`
       + (needRate ? "\nEnter the exchange rate to see LKR" : "")
       + (c.cur === base && currentRate() && !sameCurrency
         ? `\n≈ ${formatMoney(c.totals.cost / 100 * currentRate(), "LKR")} cost · ≈ ${formatMoney(c.totals.sell / 100 * currentRate(), "LKR")} selling`
@@ -717,7 +744,7 @@
   const NUMBER_KEY = "shippingEstimateNo.v1";
   let memNumber = { last: 1000, sig: "", n: 1000 };
   function receiptNumber() {
-    const sig = JSON.stringify([items.map((it) => [it.name, it.weight, it.unit, it.qty, it.price, it.pct, it.add]), Number($("zone").value) || 0]);
+    const sig = JSON.stringify([items.map((it) => [it.name, it.weight, it.unit, it.qty, it.price, it.hst, it.pct, it.add]), hstRate, Number($("zone").value) || 0]);
     let st = memNumber;
     try { st = JSON.parse(localStorage.getItem(NUMBER_KEY)) || st; } catch {}
     if (st.sig === sig && st.n) return st.n;
@@ -755,13 +782,15 @@
         name: row.it.name,
         meta: metaText(row.it),
         buying: fmt(row.price, cur),
+        hst: row.hst ? fmt(row.hst, cur) : "",
         shipping: fmt(row.ship, cur),
         cost: fmt(row.cost, cur),
         sellUnit: fmt(row.sellUnit, cur),
         markup: markupText(row, cur),
         sell: fmt(row.sell, cur),
       })),
-      totals: { price: fmt(c.totals.price, cur), ship: fmt(c.totals.ship, cur), cost: fmt(c.totals.cost, cur), sell: fmt(c.totals.sell, cur) },
+      totals: { price: fmt(c.totals.price, cur), hst: c.totals.hst ? fmt(c.totals.hst, cur) : "", ship: fmt(c.totals.ship, cur), cost: fmt(c.totals.cost, cur), sell: fmt(c.totals.sell, cur) },
+      hstLabel: `HST ${hstText()}%`,
       profit: profitText(c.totals, cur),
       shippingNote: r.free ? "Free shipping applied" : parts.length ? `Shipping includes ${parts.join(", ")}` : "",
       amountCur: cur,
@@ -816,13 +845,17 @@
     if (e.key === "Enter") { e.preventDefault(); $("itemAdd").focus(); }
   });
 
-  // The profit boxes keep the last values used, so a list with the same margin is quick to enter.
+  // The profit boxes and the HST tick keep the last values used, so similar products are quick to enter.
   const PROFIT_KEY = "cwgProfit.v1";
-  let lastProfit = { pct: 0, add: 0 };
-  try { const p = JSON.parse(localStorage.getItem(PROFIT_KEY)); if (p) lastProfit = { pct: num(p.pct), add: num(p.add) }; } catch {}
-  const showProfit = ({ pct, add }) => {
+  let lastProfit = { pct: 0, add: 0, hst: true };
+  try {
+    const p = JSON.parse(localStorage.getItem(PROFIT_KEY));
+    if (p) lastProfit = { pct: num(p.pct), add: num(p.add), hst: p.hst !== false };
+  } catch {}
+  const showProfit = ({ pct, add, hst }) => {
     $("itemPct").value = pct || "";
     $("itemAdd").value = add || "";
+    $("itemHst").checked = hst !== false;
   };
   showProfit(lastProfit);
 
@@ -843,6 +876,7 @@
     const price = num($("itemPrice").value);
     const pct = num($("itemPct").value);
     const add = num($("itemAdd").value);
+    const hst = $("itemHst").checked;
     const problem = !name ? ["Enter the product name.", "itemName"]
       : !weight ? ["Enter the weight of one item.", "itemWeight"]
       : (unit === "kg" ? weight : weight / 1000) > 1000 ? ["That weight looks too large. Check g or kg.", "itemWeight"]
@@ -857,8 +891,8 @@
       return;
     }
     const wasEditing = editingId;
-    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue(), price, pct, add };
-    lastProfit = { pct, add };
+    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue(), price, hst, pct, add };
+    lastProfit = { pct, add, hst };
     localStorage.setItem(PROFIT_KEY, JSON.stringify(lastProfit));
     items = wasEditing ? items.map((it) => (it.id === wasEditing ? item : it)) : [...items, item];
     saveItems();

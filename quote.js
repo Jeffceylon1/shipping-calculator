@@ -38,8 +38,8 @@
 
   /**
    * q: { brand, route, number, dateText, countText, weightText, chargedText?,
-   *      items: [{ name, meta, buying, shipping, cost, sellUnit, markup, sell }],
-   *      totals: { price, ship, cost, sell }, profit, shippingNote?,
+   *      items: [{ name, meta, buying, hst?, shipping, cost, sellUnit, markup, sell }],
+   *      totals: { price, hst?, ship, cost, sell }, hstLabel, profit, shippingNote?,
    *      amountCur, fxLine?, note?, contact? }
    * number: digits only (e.g. "1001"); shown as "No. 1001".
    * route: the admin's destination name; "" hides it everywhere.
@@ -48,7 +48,7 @@
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2200 + q.items.length * 132;
+    draft.height = 2400 + q.items.length * 160;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -121,13 +121,13 @@
       x.fillStyle = C.muted;
       x.font = `400 20px ${FONT}`;
       x.fillText(fit(it.meta || "", NAME_MAX), col.name, y + 62);
-      x.fillText(fit(`Buying ${it.buying}`, NAME_MAX), col.name, y + 88);
-      x.fillText(fit(`Shipping ${it.shipping}`, NAME_MAX), col.name, y + 112);
+      const costLines = [`Buying ${it.buying}`, ...(it.hst ? [`HST ${it.hst}`] : []), `Shipping ${it.shipping}`];
+      costLines.forEach((line, i) => x.fillText(fit(line, NAME_MAX), col.name, y + 88 + i * 24));
       money(it.cost, col.cost, 400, 24, y + 48);
       money(it.sellUnit, col.unit, 400, 24, y + 48);
       money(it.markup || "", col.unit, 400, 18, y + 76, C.muted);
       money(it.sell, col.sell, 700, 24, y + 48);
-      y += 130;
+      y += 82 + costLines.length * 24;
       rule();
     }
     // Totals row
@@ -159,7 +159,10 @@
       x.font = `400 24px ${FONT}`;
       x.fillText(label, W - PAD - w - 24, y);
     };
-    sumLine("Total cost", q.totals.cost, 30, 600, C.ink, 52);
+    sumLine("Buying price", q.totals.price, 24, 400, C.ink, 48);
+    if (q.totals.hst) sumLine(q.hstLabel, q.totals.hst, 24, 400, C.ink, 36);
+    sumLine("Shipping", q.totals.ship, 24, 400, C.ink, 36);
+    sumLine("Total cost", q.totals.cost, 30, 600, C.ink, 48);
     sumLine("Selling total", q.totals.sell, 50, 800, C.ink, 68);
     const neg = String(q.profit).trim().startsWith("-");
     sumLine("Profit", q.profit, 30, 700, neg ? "#b42318" : "#067647", 52);
@@ -266,6 +269,9 @@
       "",
       ...q.items.map((it, i) => `${i + 1}. ${it.name} (${it.meta}): cost ${it.cost} · selling ${it.sellUnit} each (${it.markup}) · total ${it.sell}`),
       "",
+      `Buying price: ${q.totals.price}`,
+      ...(q.totals.hst ? [`${q.hstLabel}: ${q.totals.hst}`] : []),
+      `Shipping: ${q.totals.ship}`,
       `Total cost: ${q.totals.cost}`,
       `Selling total: ${q.totals.sell}`,
       `Profit: ${q.profit}`,
