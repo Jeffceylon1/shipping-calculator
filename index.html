@@ -845,12 +845,13 @@
     if (e.key === "Enter") { e.preventDefault(); $("itemAdd").focus(); }
   });
 
-  // The profit boxes and the HST tick keep the last values used, so similar products are quick to enter.
+  // The profit boxes keep the last values used, so a list with the same margin is quick to enter.
+  // The HST tick starts ON for every new product (unticking is a per-product exception), so taxable items aren't under-costed.
   const PROFIT_KEY = "cwgProfit.v1";
-  let lastProfit = { pct: 0, add: 0, hst: true };
+  let lastProfit = { pct: 0, add: 0 };
   try {
     const p = JSON.parse(localStorage.getItem(PROFIT_KEY));
-    if (p) lastProfit = { pct: num(p.pct), add: num(p.add), hst: p.hst !== false };
+    if (p) lastProfit = { pct: num(p.pct), add: num(p.add) };
   } catch {}
   const showProfit = ({ pct, add, hst }) => {
     $("itemPct").value = pct || "";
@@ -892,7 +893,7 @@
     }
     const wasEditing = editingId;
     const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue(), price, hst, pct, add };
-    lastProfit = { pct, add, hst };
+    lastProfit = { pct, add };
     localStorage.setItem(PROFIT_KEY, JSON.stringify(lastProfit));
     items = wasEditing ? items.map((it) => (it.id === wasEditing ? item : it)) : [...items, item];
     saveItems();
