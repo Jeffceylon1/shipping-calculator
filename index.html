@@ -1123,7 +1123,10 @@
       if (found?.sure && !$("itemBrand").value.trim()) $("itemBrand").value = found.brand;
       suggestedBrand = found && $("itemBrand").value.trim().toLowerCase() !== found.brand.toLowerCase() ? found.brand : "";
       renderBrands();
-      const lines = all.filter((l) => l.conf >= 45 && l !== found?.from).sort((a, b) => b.h - a.h).slice(0, 24).sort((a, b) => a.y - b.y);
+      // Product name lines: clear text, minus the brand's own line and logo pieces ("Cera", "Cer.", "era")
+      const brandNow = $("itemBrand").value.trim() || found?.brand || "";
+      const lines = all.filter((l) => l.conf >= 45 && l !== found?.from && !(brandNow && Brands.isFragment(l.text, brandNow)))
+        .sort((a, b) => b.h - a.h).slice(0, 24).sort((a, b) => a.y - b.y);
       if (!lines.length) {
         status.textContent = found ? "Brand found. Type the product name, or try a closer, sharper photo." : "No clear text found. Type the name, or try a closer, sharper photo.";
         return;

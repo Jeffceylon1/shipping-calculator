@@ -34,6 +34,34 @@
   const GENERIC = new Set(["simple", "fresh", "origins", "collection", "kate", "sugar", "plum", "insight", "velvet", "lux",
     "essence", "matrix", "aussie", "dove", "wow", "sleek", "benefit", "janet", "degree", "axe", "lush"]);
 
+  // Phrases printed on packs that identify a brand even when its logo can't be read. Only distinctive ones.
+  const SIGNATURES = {
+    "CeraVe": ["developed with dermatologists", "mve technology", "essential ceramides"],
+    "La Roche-Posay": ["effaclar", "cicaplast", "anthelios", "toleriane", "lipikar"],
+    "Maybelline": ["fit me", "superstay", "sky high", "lash sensational", "instant age rewind", "maybelline new york"],
+    "L'Oréal": ["revitalift", "elvive", "true match", "loreal paris", "infaillible"],
+    "Garnier": ["fructis", "skinactive", "ultra doux", "whole blends"],
+    "Neutrogena": ["hydro boost", "ultra sheer", "rapid wrinkle repair"],
+    "Nivea": ["beiersdorf", "nivea creme"],
+    "The Ordinary": ["deciem"],
+    "Cetaphil": ["galderma"],
+    "Bioderma": ["sensibio", "atoderm", "sebium"],
+    "Vichy": ["mineral 89", "liftactiv", "normaderm"],
+    "Olay": ["regenerist", "total effects"],
+    "NYX": ["professional makeup"],
+    "Revlon": ["colorstay", "colorsilk"],
+    "Rimmel": ["rimmel london"],
+    "Essence": ["lash princess"],
+    "Lakmé": ["9to5", "sun expert", "absolute skin"],
+    "Clinique": ["dramatically different"],
+    "Estée Lauder": ["advanced night repair", "double wear"],
+    "Herbal Essences": ["bio renew"],
+    "Pantene": ["pro-v"],
+    "Cosrx": ["advanced snail"],
+  };
+  // Common words a logo fragment must not be mistaken for ("CAN'T" is not Cantu).
+  const COMMON = new Set(["cant", "care", "clear", "pure", "true", "soft", "skin", "body", "hair", "face", "rose", "gold", "mild",
+    "milk", "oils", "cream", "gels", "plus", "free", "max", "pro", "natu", "orga", "sens", "matt", "glow", "fair"]);
   const norm = (s) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const KNOWN = BRANDS.map((name) => ({ name, key: norm(name) }));
 
@@ -51,10 +79,30 @@
     return row[b.length];
   }
 
+  /** True when `text` is only a piece of `brand`'s name (a logo fragment like "Cera", "Cer.", "era"). */
+  function isFragment(text, brand) {
+    const t = norm(text), key = norm(brand);
+    if (!t) return false;
+    if (key.includes(t)) return true;
+    return t.length >= 3 && 1 - distance(t, key) / Math.max(t.length, key.length) >= 0.6;
+  }
+
+  /** Does `phrase` appear in the line, allowing a few misread letters? */
+  function hasPhrase(lineKey, phrase) {
+    const p = norm(phrase);
+    if (lineKey.includes(p)) return true;
+    if (p.length < 8 || lineKey.length < p.length) return false;
+    const allowed = Math.floor(p.length * 0.15);
+    for (let i = 0; i + p.length <= lineKey.length; i++) {
+      if (distance(lineKey.slice(i, i + p.length), p) <= allowed) return true;
+    }
+    return false;
+  }
+
   /**
    * Best brand for the text read from a photo.
-   * lines: [{ text, h, big }] (h = text height; big = among the largest text on the label)
-   * Returns { brand, from, sure } (from = the line it was read from; sure = read exactly, not guessed) or null.
+   * lines: [{ text, h, big, conf }] (h = text height; big = among the largest text on the label; conf = reader confidence)
+   * Returns { brand, from, sure } (from = the line it was read from; sure = safe to fill in, not just suggest) or null.
    */
   function match(lines) {
     let best = null;
@@ -82,13 +130,22 @@
             const sim = 1 - distance(c, key) / Math.max(c.length, key.length);
             if (sim >= 0.8) consider(name, sim * (line.big ? 1 : 0.9), line);
           }
-          // Logo split in two ("Cera" + "Ve", "Lakm"): a long start of the brand, in large text only
-          if (line.big && c.length >= 4 && c.length < key.length && key.startsWith(c) && c.length >= key.length * 0.66) consider(name, 0.8, line);
+          // Logo split in two ("Cera" + "Ve", "Lakm"): a long start of the brand, in large text only.
+          // Sure when it was read clearly and no other known brand starts the same way.
+          if (line.big && c.length >= 4 && c.length < key.length && key.startsWith(c) && c.length >= key.length * 0.66 && !COMMON.has(c)) {
+            const unique = KNOWN.filter((k) => k.key.startsWith(c)).length === 1;
+            consider(name, unique && (line.conf ?? 0) >= 85 ? 0.96 : 0.8, line);
+          }
         }
+      }
+      // Signature phrases ("Developed with dermatologists" → CeraVe)
+      const lineKey = norm(line.text);
+      for (const [name, phrases] of Object.entries(SIGNATURES)) {
+        if (phrases.some((ph) => hasPhrase(lineKey, ph))) consider(name, 0.95, line);
       }
     }
     return best && best.score >= 0.75 ? { brand: best.brand, from: best.line, sure: best.score >= 0.95 } : null;
   }
 
-  global.Brands = { list: BRANDS, match };
+  global.Brands = { list: BRANDS, match, isFragment };
 })(window);
