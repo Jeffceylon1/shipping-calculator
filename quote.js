@@ -37,18 +37,20 @@
   }
 
   /**
-   * q: { brand, route, number, dateText, countText, weightText, chargedText?,
-   *      items: [{ name, meta, buying, hst?, shipping, cost, sellUnit, markup, sell }],
+   * q: { brand, route, number, dateText, countText, weightText, chargedText?, title?,
+   *      items: [{ name, meta, buying, hst?, shipping, cost, sellUnit, markup, sell, img? }],
    *      totals: { price, hst?, ship, cost, sell }, hstLabel, profit, shippingNote?,
    *      amountCur, fxLine?, note?, contact? }
    * number: digits only (e.g. "1001"); shown as "No. 1001".
    * route: the admin's destination name; "" hides it everywhere.
    * profit: formatted, may start with "-" (shown red) else green.
+   * title: optional estimate title shown under the header ("" hides it).
+   * items[].img: optional decoded HTMLImageElement, drawn as a 64px thumbnail beside the name.
    */
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2400 + q.items.length * 160;
+    draft.height = 2400 + 150 + q.items.length * 160;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -80,6 +82,28 @@
     x.fillRect(PAD, y, inner, 4);
     y += 4;
 
+    // Optional estimate title (max 3 lines, ellipsis on the last)
+    const title = String(q.title || "").trim();
+    if (title) {
+      x.fillStyle = C.ink;
+      x.font = `700 32px ${FONT}`;
+      let tl = wrap(x, title, inner);
+      if (tl.length > 3) tl = [tl[0], tl[1], `${tl.slice(2).join(" ")}`];
+      tl.forEach((line, i) => {
+        if (i === 2) {
+          let t = line;
+          if (x.measureText(t).width > inner) {
+            while (t.length > 1 && x.measureText(`${t}…`).width > inner) t = t.slice(0, -1);
+            t = `${t.trimEnd()}…`;
+          }
+          line = t;
+        }
+        y += i ? 40 : 52;
+        x.fillText(line, PAD, y);
+      });
+      y += 12;
+    }
+
     // Shipment summary line
     y += 52;
     const summary = `${q.countText} · ${q.weightText}${q.chargedText ? ` · charged as ${q.chargedText}` : ""}`;
@@ -90,7 +114,9 @@
     // Products table: Product (name / meta / buying / shipping) | Cost | Selling (each) + markup | Selling total
     const COLW = 200; // max width of each money column
     const col = { name: PAD, cost: PAD + 570, unit: PAD + 790, sell: W - PAD };
-    const NAME_MAX = col.cost - COLW - 16 - PAD; // 354px
+    const PHOTO = q.items.some((it) => it.img) ? 80 : 0; // thumbnail column width (64px image + 16px gap)
+    const NAME_MAX = col.cost - COLW - 16 - PAD - PHOTO; // 354px without photos
+    const textX = col.name + PHOTO;
     const fit = (text, max) => {
       if (x.measureText(text).width <= max) return text;
       let t = text;
@@ -114,20 +140,36 @@
     y += 18;
     rule();
     for (const it of q.items) {
+      if (PHOTO && it.img) {
+        const img = it.img, S = 64, iy = y + 14;
+        const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        const side = Math.min(iw, ih);
+        x.save();
+        x.beginPath();
+        if (x.roundRect) x.roundRect(col.name, iy, S, S, 10); else x.rect(col.name, iy, S, S);
+        x.clip();
+        if (side > 0) x.drawImage(img, (iw - side) / 2, (ih - side) / 2, side, side, col.name, iy, S, S);
+        x.restore();
+        x.strokeStyle = C.line;
+        x.lineWidth = 1;
+        x.beginPath();
+        if (x.roundRect) x.roundRect(col.name + 0.5, iy + 0.5, S - 1, S - 1, 10); else x.rect(col.name + 0.5, iy + 0.5, S - 1, S - 1);
+        x.stroke();
+      }
       x.textAlign = "left";
       x.fillStyle = C.ink;
       x.font = `600 26px ${FONT}`;
-      x.fillText(fit(it.name, NAME_MAX), col.name, y + 36);
+      x.fillText(fit(it.name, NAME_MAX), textX, y + 36);
       x.fillStyle = C.muted;
       x.font = `400 20px ${FONT}`;
-      x.fillText(fit(it.meta || "", NAME_MAX), col.name, y + 62);
+      x.fillText(fit(it.meta || "", NAME_MAX), textX, y + 62);
       const costLines = [`Buying ${it.buying}`, ...(it.hst ? [`HST ${it.hst}`] : []), `Shipping ${it.shipping}`];
-      costLines.forEach((line, i) => x.fillText(fit(line, NAME_MAX), col.name, y + 88 + i * 24));
+      costLines.forEach((line, i) => x.fillText(fit(line, NAME_MAX), textX, y + 88 + i * 24));
       money(it.cost, col.cost, 400, 24, y + 48);
       money(it.sellUnit, col.unit, 400, 24, y + 48);
       money(it.markup || "", col.unit, 400, 18, y + 76, C.muted);
       money(it.sell, col.sell, 700, 24, y + 48);
-      y += 82 + costLines.length * 24;
+      y += PHOTO ? Math.max(92, 82 + costLines.length * 24) : 82 + costLines.length * 24;
       rule();
     }
     // Totals row
@@ -319,13 +361,14 @@
   }
 
   /** One-line caption sent alongside the quote image. */
-  const caption = (q) => `${q.brand} – Cost estimate No. ${q.number}: ${q.items.length} product${q.items.length === 1 ? "" : "s"}, `
+  const caption = (q) => `${q.brand}${q.title ? ` – ${q.title}` : ""} – Cost estimate No. ${q.number}: ${q.items.length} product${q.items.length === 1 ? "" : "s"}, `
     + `${q.weightText} · Cost ${q.totals.cost} · Selling ${q.totals.sell}`;
 
   /** Full plain-text quote (Copy text / Email). */
   function text(q) {
     const lines = [
       `${q.brand} – COST ESTIMATE No. ${q.number}`,
+      ...(q.title ? [`Title: ${q.title}`] : []),
       ...(q.route ? [q.route] : []),
       `Date: ${q.dateText}`,
       `${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
