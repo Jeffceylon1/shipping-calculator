@@ -429,10 +429,10 @@
 <div class="toast" id="toast" role="status"></div>
 
 <!-- ?v= changes with every update so phones never mix a new page with old cached scripts -->
-<script src="config.js?v=20261006c"></script>
-<script src="shared.js?v=20261006c"></script>
-<script src="quote.js?v=20261006c"></script>
-<script src="brands.js?v=20261006c"></script>
+<script src="config.js?v=20261006d"></script>
+<script src="shared.js?v=20261006d"></script>
+<script src="quote.js?v=20261006d"></script>
+<script src="brands.js?v=20261006d"></script>
 <script>
 (async () => {
   const $ = (id) => document.getElementById(id);
@@ -1134,9 +1134,13 @@
       }
       // Product name: the large text on the label (product line + shade), without the brand line
       if (!$("itemName").value.trim()) {
+        // Canadian packs are bilingual: prefer the English lines for the name (French stays available as chips)
+        const french = (t) => /[éèêàçùâîôû]|\b(nettoyant|cr[eè]me|hydratante?|pour|peau|avec|sans|parfum|visage|corps|soin|r[ée]paratrice|et|de|du|des|en|au|aux|le|les)\b/i.test(t);
         const big = lines.filter((l) => l.big);
-        $("itemName").value = (big.length ? big : lines.slice(0, 2)).map((l) => l.text).join(" ").slice(0, 100);
-        for (const l of lines) l.used = big.length ? l.big : lines.indexOf(l) < 2;
+        const english = big.filter((l) => !french(l.text));
+        const pick = english.length ? english : big.length ? big : lines.slice(0, 2);
+        $("itemName").value = pick.map((l) => l.text).join(" ").slice(0, 100);
+        for (const l of lines) l.used = pick.includes(l);
       }
       status.textContent = suggestedBrand
         ? `Is the brand ${suggestedBrand}? Tap it above to confirm. Tap text below to add it to the name (shade, code…).`
