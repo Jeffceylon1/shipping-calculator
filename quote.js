@@ -50,7 +50,7 @@
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2400 + 150 + q.items.length * 160;
+    draft.height = 2400 + 150 + q.items.length * 220;
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -156,20 +156,25 @@
         if (x.roundRect) x.roundRect(col.name + 0.5, iy + 0.5, S - 1, S - 1, 10); else x.rect(col.name + 0.5, iy + 0.5, S - 1, S - 1);
         x.stroke();
       }
+      // Full product name (exact shade/variant matters): wrap up to 3 lines instead of cutting it off
       x.textAlign = "left";
       x.fillStyle = C.ink;
-      x.font = `600 26px ${FONT}`;
-      x.fillText(fit(it.name, NAME_MAX), textX, y + 36);
+      x.font = `600 25px ${FONT}`;
+      let nameLines = wrap(x, it.name, NAME_MAX);
+      if (nameLines.length > 3) nameLines = [...nameLines.slice(0, 2), fit(nameLines.slice(2).join(" "), NAME_MAX)];
+      nameLines = nameLines.map((line) => fit(line, NAME_MAX));
+      nameLines.forEach((line, i) => x.fillText(line, textX, y + 36 + i * 30));
+      const extra = (nameLines.length - 1) * 30;
       x.fillStyle = C.muted;
       x.font = `400 20px ${FONT}`;
-      x.fillText(fit(it.meta || "", NAME_MAX), textX, y + 62);
+      x.fillText(fit(it.meta || "", NAME_MAX), textX, y + 62 + extra);
       const costLines = [`Buying ${it.buying}`, ...(it.hst ? [`HST ${it.hst}`] : []), `Shipping ${it.shipping}`];
-      costLines.forEach((line, i) => x.fillText(fit(line, NAME_MAX), textX, y + 88 + i * 24));
+      costLines.forEach((line, i) => x.fillText(fit(line, NAME_MAX), textX, y + 88 + extra + i * 24));
       money(it.cost, col.cost, 400, 24, y + 48);
       money(it.sellUnit, col.unit, 400, 24, y + 48);
       money(it.markup || "", col.unit, 400, 18, y + 76, C.muted);
       money(it.sell, col.sell, 700, 24, y + 48);
-      y += PHOTO ? Math.max(92, 82 + costLines.length * 24) : 82 + costLines.length * 24;
+      y += Math.max(PHOTO ? 92 : 0, 82 + extra + costLines.length * 24);
       rule();
     }
     // Totals row
