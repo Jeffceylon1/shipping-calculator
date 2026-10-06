@@ -62,6 +62,10 @@
   .items-head h2 { margin:0; font-size:16px; }
   .items-head h2 span { color:var(--muted); font-weight:500; }
   .link-btn { border:none; background:none; font:inherit; font-size:13px; font-weight:600; color:#b42318; cursor:pointer; padding:8px; border-radius:8px; }
+  .open-btn { display:inline-flex; align-items:center; gap:8px; margin:-12px 0 18px; padding:8px 12px; border:1px dashed #c9d7ff; border-radius:10px;
+              background:#fff; color:var(--accent); font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+  .open-btn:hover { background:var(--accent-soft); }
+  .open-btn svg { width:16px; height:16px; }
   .items-table { width:100%; border-collapse:collapse; font-size:14px; }
   .items-table th { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
   .items-table td { padding:10px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
@@ -216,6 +220,10 @@
   <div class="pane-input">
   <h1 id="title">Crown Way Global</h1>
   <p class="sub" id="route">Cost &amp; selling price calculator</p>
+  <button type="button" class="open-btn" id="openBtn">
+    <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Open saved estimate (PDF or image)
+  </button>
+  <input type="file" id="openFile" accept=".pdf,.png,application/pdf,image/png" hidden>
 
   <form id="itemForm" autocomplete="off" novalidate>
     <label class="field"><span>Product name</span>
@@ -572,26 +580,23 @@
   const UNIT_KEY = "shippingUnit.v1";
   const MAX_ITEMS = 100;
   const MAX_QTY = 999;
+  /** Validate a product list (from this browser or from an opened file). */
+  const normalizeItems = (list) => (Array.isArray(list) ? list : [])
+    .filter((it) => it && num(it.weight) > 0 && (it.unit === "g" || it.unit === "kg"))
+    .slice(0, MAX_ITEMS)
+    .map((it, i) => ({
+      id: String(it.id || `item-${Date.now().toString(36)}-${i}`),
+      name: String(it.name || `Item ${i + 1}`).slice(0, 60),
+      weight: num(it.weight),
+      unit: it.unit,
+      qty: Math.max(1, Math.min(MAX_QTY, Math.floor(num(it.qty)) || 1)),
+      price: num(it.price),
+      pct: num(it.pct),
+      hst: it.hst !== false,
+      add: num(it.add),
+    }));
   let items = [];
-  try {
-    const saved = JSON.parse(localStorage.getItem(ITEMS_KEY));
-    if (Array.isArray(saved)) {
-      items = saved
-        .filter((it) => it && num(it.weight) > 0 && (it.unit === "g" || it.unit === "kg"))
-        .slice(0, MAX_ITEMS)
-        .map((it, i) => ({
-          id: String(it.id || `restored-${i}`),
-          name: String(it.name || `Item ${i + 1}`).slice(0, 60),
-          weight: num(it.weight),
-          unit: it.unit,
-          qty: Math.max(1, Math.min(MAX_QTY, Math.floor(num(it.qty)) || 1)),
-          price: num(it.price),
-          pct: num(it.pct),
-          hst: it.hst !== false,
-          add: num(it.add),
-        }));
-    }
-  } catch {}
+  try { items = normalizeItems(JSON.parse(localStorage.getItem(ITEMS_KEY))); } catch {}
   let unit = localStorage.getItem(UNIT_KEY) === "g" ? "g" : "kg";
   let editingId = null;
   const saveItems = () => localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
@@ -740,19 +745,39 @@
     $("profitBox").className = c.totals.profit < 0 ? "loss" : c.totals.profit > 0 ? "gain" : "";
   }
 
-  /** Simple receipt number: new per changed shipment, stable when re-exporting the same list. */
+  /**
+   * Simple receipt number: new per changed shipment, stable when re-exporting the same list.
+   * An estimate opened from a saved file keeps its own number ("pinned") until the list is cleared.
+   */
   const NUMBER_KEY = "shippingEstimateNo.v1";
-  let memNumber = { last: 1000, sig: "", n: 1000 };
+  let memNumber = { last: 1000, sig: "", n: 1000, pinned: 0 };
+  const readNumbers = () => {
+    try { return { ...memNumber, ...JSON.parse(localStorage.getItem(NUMBER_KEY)) }; } catch { return memNumber; }
+  };
+  const writeNumbers = (st) => {
+    memNumber = st;
+    try { localStorage.setItem(NUMBER_KEY, JSON.stringify(st)); } catch {}
+  };
   function receiptNumber() {
+    const st = readNumbers();
+    if (st.pinned) return st.pinned;
     const sig = JSON.stringify([items.map((it) => [it.name, it.weight, it.unit, it.qty, it.price, it.hst, it.pct, it.add]), hstRate, Number($("zone").value) || 0]);
-    let st = memNumber;
-    try { st = JSON.parse(localStorage.getItem(NUMBER_KEY)) || st; } catch {}
     if (st.sig === sig && st.n) return st.n;
     const n = (Number(st.last) || 1000) + 1;
-    memNumber = { last: n, sig, n };
-    try { localStorage.setItem(NUMBER_KEY, JSON.stringify(memNumber)); } catch {}
+    writeNumbers({ ...st, last: n, sig, n });
     return n;
   }
+  const pinNumber = (n) => {
+    const st = readNumbers();
+    writeNumbers({ ...st, last: Math.max(Number(st.last) || 1000, n), pinned: n });
+  };
+
+  /** Everything needed to reopen this estimate later; saved invisibly inside the PDF/image. */
+  const estimateData = (number) => ({
+    app: "crown-way-global", v: 1, number: Number(number), date: quoteDate, hstRate,
+    rate: currentRate() || null, display, zone: Number($("zone").value) || 0,
+    items: items.map(({ name, weight, unit, qty, price, hst, pct, add }) => ({ name, weight, unit, qty, price, hst, pct, add })),
+  });
 
   /** Snapshot of the current estimate for export/share. Null when there are no products. */
   function buildQuote() {
@@ -910,6 +935,7 @@
     if (!it) return;
     if (e.target.closest(".remove")) {
       items = items.filter((x) => x.id !== it.id);
+      if (!items.length) writeNumbers({ ...readNumbers(), pinned: 0 });
       if (editingId === it.id) resetForm();
       saveItems();
       render();
@@ -934,11 +960,54 @@
   $("clearItems").addEventListener("click", () => {
     if (!confirm("Remove all products from this shipment?")) return;
     items = [];
+    writeNumbers({ ...readNumbers(), pinned: 0 }); // the next estimate gets a new number
     resetForm();
     saveItems();
     render();
   });
   $("zone").addEventListener("input", render);
+
+  // ---- Open a saved estimate: the PDF/image carries the product list, so no database is needed ----
+  $("openBtn").addEventListener("click", () => $("openFile").click());
+  $("openFile").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    let data = null;
+    try { data = await Quote.readData(file); } catch {}
+    const loaded = data && data.app === "crown-way-global" ? normalizeItems(data.items) : [];
+    if (!loaded.length) {
+      alert("This file has no saved estimate in it.\n\nOpen a PDF or image that was saved from this calculator. "
+        + "Images sent through WhatsApp as photos lose the saved data, so keep the PDF for editing later.");
+      return;
+    }
+    const n = Math.floor(num(data.number));
+    if (items.length && !confirm(`Replace the current list with estimate No. ${n} (${loaded.length} product${loaded.length > 1 ? "s" : ""})?`)) return;
+    items = loaded;
+    saveItems();
+    resetForm();
+    if (data.hstRate !== undefined) {
+      hstRate = Math.min(100, num(data.hstRate));
+      localStorage.setItem(HST_KEY, String(hstRate));
+      $("hstRate").value = hstText();
+      showHstRate();
+    }
+    if (num(data.rate) > 0) { // reopen with the exchange rate it was made with
+      ownRate = num(data.rate);
+      localStorage.setItem(RATE_KEY, String(ownRate));
+    }
+    display = data.display === "LKR" ? "LKR" : "base";
+    localStorage.setItem(DISPLAY_KEY, display);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+      quoteDate = data.date;
+      $("quoteDate").value = quoteDate;
+      try { localStorage.setItem(DATE_KEY, JSON.stringify({ value: quoteDate, setOn: today })); } catch {}
+    }
+    if (Number(data.zone) < rates.zones.length) $("zone").value = Number(data.zone) || 0;
+    if (n) pinNumber(n);
+    render();
+    toast(`Opened estimate No. ${n}. Make your changes, then save it again.`);
+  });
 
   // Print / image / PDF
   $("printBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
@@ -948,11 +1017,11 @@
     window.print();
   }));
   $("imageBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
-    Quote.download(await Quote.toBlob(canvas, "image/png"), `estimate-${q.number}.png`);
+    Quote.download(await Quote.pngWithData(await Quote.toBlob(canvas, "image/png"), estimateData(q.number)), `estimate-${q.number}.png`);
     toast("Image saved");
   }));
   $("pdfBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
-    Quote.download(await Quote.toPdfBlob(canvas), `estimate-${q.number}.pdf`);
+    Quote.download(await Quote.toPdfBlob(canvas, estimateData(q.number)), `estimate-${q.number}.pdf`);
     toast("PDF saved");
   }));
 
@@ -976,7 +1045,7 @@
   sheet.querySelector('[data-send="copyImage"]').hidden = !canCopyImage;
 
   $("shareBtn").addEventListener("click", () => withQuote(async (q, canvas) => {
-    const blob = await Quote.toBlob(canvas, "image/png");
+    const blob = await Quote.pngWithData(await Quote.toBlob(canvas, "image/png"), estimateData(q.number));
     if (sending) URL.revokeObjectURL(sending.previewUrl);
     sending = { q, canvas, blob, file: new File([blob], `estimate-${q.number}.png`, { type: "image/png" }), previewUrl: URL.createObjectURL(blob) };
     $("quotePreview").src = sending.previewUrl;
@@ -1015,7 +1084,7 @@
     try {
       if (action === "copyImage") { await copyImage(); toast("Image copied. Paste it into any chat."); }
       if (action === "saveImage") { Quote.download(blob, `estimate-${q.number}.png`); toast("Image saved"); }
-      if (action === "savePdf") { Quote.download(await Quote.toPdfBlob(canvas), `estimate-${q.number}.pdf`); toast("PDF saved"); }
+      if (action === "savePdf") { Quote.download(await Quote.toPdfBlob(canvas, estimateData(q.number)), `estimate-${q.number}.pdf`); toast("PDF saved"); }
       if (action === "copyText") { await navigator.clipboard.writeText(Quote.text(q)); toast("Quote text copied"); }
     } catch {
       toast("Something went wrong. Please try again.");

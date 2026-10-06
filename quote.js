@@ -206,8 +206,69 @@
     return promise;
   };
 
-  /** Single-page A4 PDF embedding the quote as a JPEG. No dependencies. */
-  async function toPdfBlob(canvas) {
+  // ---- Editable data hidden inside the saved files (no database needed) ----
+  // PNG: a tEXt chunk "CWGData"; PDF: a /CWGData entry in the document info. Both hold base64 JSON.
+  const DATA_KEY = "CWGData";
+  const toBase64 = (s) => {
+    let bin = "";
+    for (const b of new TextEncoder().encode(s)) bin += String.fromCharCode(b);
+    return btoa(bin);
+  };
+  const fromBase64 = (s) => new TextDecoder().decode(Uint8Array.from(atob(s), (c) => c.charCodeAt(0)));
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  const crc32 = (bytes) => {
+    let c = 0xffffffff;
+    for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+
+  /** The PNG with `data` stored in a tEXt chunk just before IEND (always the last 12 bytes of a canvas PNG). */
+  async function pngWithData(blob, data) {
+    const png = new Uint8Array(await blob.arrayBuffer());
+    const body = new TextEncoder().encode(`${DATA_KEY}\0${toBase64(JSON.stringify(data))}`);
+    const chunk = new Uint8Array(12 + body.length);
+    const view = new DataView(chunk.buffer);
+    view.setUint32(0, body.length);
+    chunk.set(new TextEncoder().encode("tEXt"), 4);
+    chunk.set(body, 8);
+    view.setUint32(8 + body.length, crc32(chunk.subarray(4, 8 + body.length)));
+    const iend = png.length - 12;
+    return new Blob([png.subarray(0, iend), chunk, png.subarray(iend)], { type: "image/png" });
+  }
+
+  /** Estimate data saved by this app inside a PNG or PDF, or null if the file has none. */
+  async function readData(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const latin1 = (b) => new TextDecoder("latin1").decode(b);
+    if (bytes[0] === 0x89 && latin1(bytes.subarray(1, 4)) === "PNG") {
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      for (let i = 8; i + 8 <= bytes.length;) {
+        const len = view.getUint32(i);
+        const type = latin1(bytes.subarray(i + 4, i + 8));
+        if (type === "tEXt") {
+          const text = latin1(bytes.subarray(i + 8, i + 8 + len));
+          const sep = text.indexOf("\0");
+          if (text.slice(0, sep) === DATA_KEY) return JSON.parse(fromBase64(text.slice(sep + 1)));
+        }
+        if (type === "IEND") break;
+        i += 12 + len;
+      }
+      return null;
+    }
+    const match = latin1(bytes).match(/\/CWGData \(([A-Za-z0-9+/=]+)\)/);
+    return match ? JSON.parse(fromBase64(match[1])) : null;
+  }
+
+  /** Single-page A4 PDF embedding the quote as a JPEG (and `data`, if given, in the document info). No dependencies. */
+  async function toPdfBlob(canvas, data) {
     const jpeg = new Uint8Array(await (await toBlob(canvas, "image/jpeg", 0.92)).arrayBuffer());
     const pageW = 595.28, pageH = 841.89, margin = 36;
     let drawW = pageW - margin * 2;
@@ -238,10 +299,12 @@
     const content = `q ${drawW.toFixed(2)} 0 0 ${drawH.toFixed(2)} ${left.toFixed(2)} ${bottom.toFixed(2)} cm /Im0 Do Q`;
     obj(5, () => push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`));
 
+    obj(6, () => push(`<< /Producer (Crown Way Global)${data ? ` /${DATA_KEY} (${toBase64(JSON.stringify(data))})` : ""} >>`));
+
     const xref = length;
-    let table = "xref\n0 6\n0000000000 65535 f \n";
-    for (let n = 1; n <= 5; n++) table += `${String(offsets[n]).padStart(10, "0")} 00000 n \n`;
-    push(`${table}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    let table = "xref\n0 7\n0000000000 65535 f \n";
+    for (let n = 1; n <= 6; n++) table += `${String(offsets[n]).padStart(10, "0")} 00000 n \n`;
+    push(`${table}trailer\n<< /Size 7 /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
     return new Blob(chunks, { type: "application/pdf" });
   }
 
@@ -282,5 +345,5 @@
     return lines.join("\n");
   }
 
-  global.Quote = { drawQuote, toBlob, toPdfBlob, download, caption, text };
+  global.Quote = { drawQuote, toBlob, toPdfBlob, pngWithData, readData, download, caption, text };
 })(window);
