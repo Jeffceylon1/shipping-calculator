@@ -36,7 +36,7 @@
 
   // Phrases printed on packs that identify a brand even when its logo can't be read. Only distinctive ones.
   const SIGNATURES = {
-    "CeraVe": ["developed with dermatologists", "mve technology", "essential ceramides"],
+    "CeraVe": ["developed with dermatologists", "with dermatologists", "developpe avec des dermatologues", "avec des dermatologues", "mve technology", "essential ceramides"],
     "La Roche-Posay": ["effaclar", "cicaplast", "anthelios", "toleriane", "lipikar"],
     "Maybelline": ["fit me", "superstay", "sky high", "lash sensational", "instant age rewind", "maybelline new york"],
     "L'Oréal": ["revitalift", "elvive", "true match", "loreal paris", "infaillible"],
@@ -147,5 +147,8 @@
     return best && best.score >= 0.75 ? { brand: best.brand, from: best.line, sure: best.score >= 0.95 } : null;
   }
 
-  global.Brands = { list: BRANDS, match, isFragment };
+  /** True when the line is one of the brand's signature phrases (keep those out of the product name). */
+  const isSignature = (text, brand) => (SIGNATURES[brand] || []).some((ph) => hasPhrase(norm(text), ph));
+
+  global.Brands = { list: BRANDS, match, isFragment, isSignature };
 })(window);
