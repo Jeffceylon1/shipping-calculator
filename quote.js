@@ -2,7 +2,7 @@
 (function (global) {
   const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
   const C = { accent: "#1f5eff", ink: "#1d2433", muted: "#667085", line: "#d0d5dd" };
-  const W = 1080;
+  const W = 1600;
   const PAD = 56;
 
   function wrap(ctx, text, maxWidth) {
@@ -38,9 +38,12 @@
 
   /**
    * q: { brand, route, number, dateText, countText, weightText, chargedText?, title?,
-   *      items: [{ name, meta, buying, hst?, shipping, cost, sellUnit, markup, sell, img? }],
-   *      totals: { price, hst?, ship, cost, sell }, hstLabel, profit, shippingNote?,
+   *      items: [{ name, unitWeight, qty, weight, buying, hst, shipping, cost, sellUnit, markup, sell, img? }],
+   *      totals: { qty, weight, price, hst, ship, cost, sell }, hstLabel, profit, shippingNote?,
    *      amountCur, fxLine?, note?, contact? }
+   * items[]: all values pre-formatted strings; unitWeight e.g. "150 g", qty e.g. "6", weight (line total) e.g. "900 g";
+   *          hst is "" when the item has no HST (shown as "—"). The full name is always drawn (wrapped, never cut).
+   * totals.qty: total pieces (e.g. "14"), totals.weight: e.g. "2.8 kg", totals.hst: "" when none.
    * number: digits only (e.g. "1001"); shown as "No. 1001".
    * route: the admin's destination name; "" hides it everywhere.
    * profit: formatted, may start with "-" (shown red) else green.
@@ -50,7 +53,7 @@
   function drawQuote(q) {
     const draft = document.createElement("canvas");
     draft.width = W;
-    draft.height = 2400 + 150 + q.items.length * 220;
+    draft.height = 2600 + q.items.reduce((h, it) => h + 260 + Math.ceil(String(it.name || "").length / 24) * 30, 0);
     const x = draft.getContext("2d");
     x.fillStyle = "#fff";
     x.fillRect(0, 0, W, draft.height);
@@ -111,33 +114,58 @@
     fitFont(x, summary, 400, 24, 18, FONT, inner);
     x.fillText(summary, PAD, y);
 
-    // Products table: Product (name / meta / buying / shipping) | Cost | Selling (each) + markup | Selling total
-    const COLW = 200; // max width of each money column
-    const col = { name: PAD, cost: PAD + 570, unit: PAD + 790, sell: W - PAD };
-    const PHOTO = q.items.some((it) => it.img) ? 80 : 0; // thumbnail column width (64px image + 16px gap)
-    const NAME_MAX = col.cost - COLW - 16 - PAD - PHOTO; // 354px without photos
-    const textX = col.name + PHOTO;
-    const fit = (text, max) => {
-      if (x.measureText(text).width <= max) return text;
-      let t = text;
-      while (t.length > 1 && x.measureText(`${t}…`).width > max) t = t.slice(0, -1);
-      return `${t.trimEnd()}…`;
-    };
-    const money = (text, xPos, weight, size, baseline, color = C.ink) => {
-      x.textAlign = "right";
+    // Products table: Product | Qty | Weight | Buying | HST | Shipping | Cost | Selling (each) | Selling total
+    // Every column but Product is fixed; columns are laid out right-to-left from the right margin with GAP between them.
+    const GAP = 12;
+    const specs = [
+      ["sell", 160, "right", ["Selling", "total"]],
+      ["unit", 140, "right", ["Selling", "(each)"]],
+      ["cost", 160, "right", [`Cost (${q.amountCur})`]],
+      ["ship", 140, "right", ["Shipping"]],
+      ["hst", 130, "right", ["HST"]],
+      ["buy", 150, "right", ["Buying"]],
+      ["weight", 100, "right", ["Weight"]],
+      ["qty", 50, "center", ["Qty"]],
+    ];
+    const col = {};
+    let edge = W - PAD;
+    for (const [key, width, align, label] of specs) {
+      const left = edge - width;
+      col[key] = { width, align, label, x: align === "right" ? edge : left + width / 2 };
+      edge = left - GAP;
+    }
+    const PHOTO = q.items.some((it) => it.img) ? 80 : 0; // 64px thumbnail + 16px gap
+    const textX = PAD + PHOTO;
+    const NAME_MAX = edge - textX; // product column: 362px wide (282px for text beside photos)
+    // Word-wrap, then split any single word still wider than the column (never cut, never "…").
+    const nameLines = (name) => wrap(x, name, NAME_MAX).flatMap((line) => {
+      if (x.measureText(line).width <= NAME_MAX) return [line];
+      const parts = [];
+      let part = "";
+      for (const ch of line) {
+        if (part && x.measureText(part + ch).width > NAME_MAX) { parts.push(part); part = ch; }
+        else part += ch;
+      }
+      return [...parts, part];
+    });
+    // A value in a column, shrunk (down to 12px) rather than spilling into its neighbour.
+    const cell = (key, text, weight, size, baseline, color = C.ink) => {
+      const c = col[key];
+      x.textAlign = c.align;
       x.fillStyle = color;
-      fitFont(x, text, weight, size, 14, FONT, COLW);
-      x.fillText(text, xPos, baseline);
+      fitFont(x, String(text), weight, size, 12, FONT, c.width);
+      x.fillText(String(text), c.x, baseline);
     };
     const rule = (color = C.line) => { x.fillStyle = color; x.fillRect(PAD, y - 1, inner, 2); };
     y += 64;
-    fieldLabel(x, "Product", col.name, y);
-    x.textAlign = "right";
-    fieldLabel(x, `Cost (${q.amountCur})`, col.cost, y);
-    fieldLabel(x, "Selling (each)", col.unit, y);
-    fieldLabel(x, "Selling total", col.sell, y);
     x.textAlign = "left";
-    y += 18;
+    fieldLabel(x, "Product", PAD, y + 22);
+    for (const { x: cx, align, label } of Object.values(col)) {
+      x.textAlign = align;
+      label.forEach((line, i) => fieldLabel(x, line, cx, y + (label.length === 1 ? 22 : i * 22)));
+    }
+    x.textAlign = "left";
+    y += 40;
     rule();
     for (const it of q.items) {
       if (PHOTO && it.img) {
@@ -146,44 +174,47 @@
         const side = Math.min(iw, ih);
         x.save();
         x.beginPath();
-        if (x.roundRect) x.roundRect(col.name, iy, S, S, 10); else x.rect(col.name, iy, S, S);
+        if (x.roundRect) x.roundRect(PAD, iy, S, S, 10); else x.rect(PAD, iy, S, S);
         x.clip();
-        if (side > 0) x.drawImage(img, (iw - side) / 2, (ih - side) / 2, side, side, col.name, iy, S, S);
+        if (side > 0) x.drawImage(img, (iw - side) / 2, (ih - side) / 2, side, side, PAD, iy, S, S);
         x.restore();
         x.strokeStyle = C.line;
         x.lineWidth = 1;
         x.beginPath();
-        if (x.roundRect) x.roundRect(col.name + 0.5, iy + 0.5, S - 1, S - 1, 10); else x.rect(col.name + 0.5, iy + 0.5, S - 1, S - 1);
+        if (x.roundRect) x.roundRect(PAD + 0.5, iy + 0.5, S - 1, S - 1, 10); else x.rect(PAD + 0.5, iy + 0.5, S - 1, S - 1);
         x.stroke();
       }
-      // Full product name (exact shade/variant matters): wrap up to 3 lines instead of cutting it off
+      // Full product name (exact shade/variant matters): as many lines as it needs
       x.textAlign = "left";
       x.fillStyle = C.ink;
-      x.font = `600 25px ${FONT}`;
-      let nameLines = wrap(x, it.name, NAME_MAX);
-      if (nameLines.length > 3) nameLines = [...nameLines.slice(0, 2), fit(nameLines.slice(2).join(" "), NAME_MAX)];
-      nameLines = nameLines.map((line) => fit(line, NAME_MAX));
-      nameLines.forEach((line, i) => x.fillText(line, textX, y + 36 + i * 30));
-      const extra = (nameLines.length - 1) * 30;
-      x.fillStyle = C.muted;
-      x.font = `400 20px ${FONT}`;
-      x.fillText(fit(it.meta || "", NAME_MAX), textX, y + 62 + extra);
-      const costLines = [`Buying ${it.buying}`, ...(it.hst ? [`HST ${it.hst}`] : []), `Shipping ${it.shipping}`];
-      costLines.forEach((line, i) => x.fillText(fit(line, NAME_MAX), textX, y + 88 + extra + i * 24));
-      money(it.cost, col.cost, 400, 24, y + 48);
-      money(it.sellUnit, col.unit, 400, 24, y + 48);
-      money(it.markup || "", col.unit, 400, 18, y + 76, C.muted);
-      money(it.sell, col.sell, 700, 24, y + 48);
-      y += Math.max(PHOTO ? 92 : 0, 82 + extra + costLines.length * 24);
+      x.font = `600 24px ${FONT}`;
+      const lines = nameLines(it.name || "");
+      lines.forEach((line, i) => x.fillText(line, textX, y + 38 + i * 30));
+      cell("qty", it.qty, 400, 22, y + 38);
+      cell("weight", it.weight, 400, 22, y + 38);
+      cell("weight", `${it.unitWeight} each`, 400, 17, y + 64, C.muted);
+      cell("buy", it.buying, 400, 22, y + 38);
+      cell("hst", it.hst || "—", 400, 22, y + 38, it.hst ? C.ink : C.muted);
+      cell("ship", it.shipping, 400, 22, y + 38);
+      cell("cost", it.cost, 700, 22, y + 38);
+      cell("unit", it.sellUnit, 400, 22, y + 38);
+      cell("unit", it.markup || "", 400, 17, y + 64, C.muted);
+      cell("sell", it.sell, 700, 22, y + 38);
+      y += Math.max(PHOTO && it.img ? 92 : 0, 84, 38 + (lines.length - 1) * 30 + 26);
       rule();
     }
     // Totals row
     x.textAlign = "left";
     x.fillStyle = C.ink;
-    x.font = `700 26px ${FONT}`;
-    x.fillText("All products", col.name, y + 40);
-    money(q.totals.cost, col.cost, 700, 24, y + 40);
-    money(q.totals.sell, col.sell, 700, 24, y + 40);
+    x.font = `700 24px ${FONT}`;
+    x.fillText("All products", PAD, y + 40);
+    cell("qty", q.totals.qty, 700, 22, y + 40);
+    cell("weight", q.totals.weight, 700, 22, y + 40);
+    cell("buy", q.totals.price, 700, 22, y + 40);
+    cell("hst", q.totals.hst || "—", 700, 22, y + 40, q.totals.hst ? C.ink : C.muted);
+    cell("ship", q.totals.ship, 700, 22, y + 40);
+    cell("cost", q.totals.cost, 700, 22, y + 40);
+    cell("sell", q.totals.sell, 700, 22, y + 40);
     y += 60;
     if (q.shippingNote) {
       x.fillStyle = C.muted;
@@ -314,10 +345,11 @@
     return match ? JSON.parse(fromBase64(match[1])) : null;
   }
 
-  /** Single-page A4 PDF embedding the quote as a JPEG (and `data`, if given, in the document info). No dependencies. */
+  /** Single-page A4 PDF (landscape for wide canvases) embedding the quote as a JPEG (and `data`, if given, in the document info). No dependencies. */
   async function toPdfBlob(canvas, data) {
     const jpeg = new Uint8Array(await (await toBlob(canvas, "image/jpeg", 0.92)).arrayBuffer());
-    const pageW = 595.28, pageH = 841.89, margin = 36;
+    const landscape = canvas.width > canvas.height;
+    const pageW = landscape ? 841.89 : 595.28, pageH = landscape ? 595.28 : 841.89, margin = 36;
     let drawW = pageW - margin * 2;
     let drawH = (drawW * canvas.height) / canvas.width;
     if (drawH > pageH - margin * 2) { drawH = pageH - margin * 2; drawW = (drawH * canvas.width) / canvas.height; }
@@ -378,7 +410,8 @@
       `Date: ${q.dateText}`,
       `${q.countText} · Total weight: ${q.weightText}${q.chargedText ? ` (charged as ${q.chargedText})` : ""}`,
       "",
-      ...q.items.map((it, i) => `${i + 1}. ${it.name} (${it.meta}): cost ${it.cost} · selling ${it.sellUnit} each (${it.markup}) · total ${it.sell}`),
+      ...q.items.map((it, i) => `${i + 1}. ${it.name}: ${it.qty} × ${it.unitWeight} = ${it.weight} · buying ${it.buying}`
+        + `${it.hst ? ` + HST ${it.hst}` : ""} + shipping ${it.shipping} = cost ${it.cost} · selling ${it.sellUnit} each (${it.markup}) · total ${it.sell}`),
       "",
       `Buying price: ${q.totals.price}`,
       ...(q.totals.hst ? [`${q.hstLabel}: ${q.totals.hst}`] : []),

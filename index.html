@@ -124,6 +124,10 @@
     .items-table .cost-inline { display:inline; font-weight:600; color:var(--ink); }
     .items-table .sell-each { display:block; }
   }
+  .brand-chips { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px; }
+  .brand-chips:empty { display:none; }
+  .brand-chips button { font:inherit; font-size:13px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; }
+  .brand-chips button.suggest { border-color:#f79009; background:#fffaeb; font-weight:700; }
   .rate-src { margin:-6px 0 12px; font-size:12px; color:var(--muted); }
   .rate-src[hidden] { display:none; }
   .rate-src button { border:none; background:none; padding:0; font:inherit; font-weight:600; color:var(--accent); text-decoration:underline; cursor:pointer; }
@@ -251,6 +255,10 @@
   <input type="file" id="openFile" accept=".pdf,.png,application/pdf,image/png" hidden>
 
   <form id="itemForm" autocomplete="off" novalidate>
+    <label class="field" for="itemBrand" style="margin-bottom:6px"><span style="margin:0">Brand</span></label>
+    <input id="itemBrand" list="brandList" type="text" maxlength="40" placeholder="e.g. Garnier, Maybelline, Lakmé" enterkeyhint="next" autocomplete="off" style="margin-bottom:8px">
+    <datalist id="brandList"></datalist>
+    <div class="brand-chips" id="brandChips"></div>
     <label class="field" for="itemName" style="margin-bottom:6px"><span style="margin:0">Product name</span></label>
     <div class="field name-row" style="margin-bottom:16px">
       <img id="photoThumb" class="name-thumb" alt="Product photo" hidden>
@@ -423,6 +431,7 @@
 <script src="config.js"></script>
 <script src="shared.js"></script>
 <script src="quote.js"></script>
+<script src="brands.js"></script>
 <script>
 (async () => {
   const $ = (id) => document.getElementById(id);
@@ -630,6 +639,7 @@
     .map((it, i) => ({
       id: String(it.id || `item-${Date.now().toString(36)}-${i}`),
       name: String(it.name || `Item ${i + 1}`).slice(0, 100),
+      brand: String(it.brand || "").slice(0, 40),
       weight: num(it.weight),
       unit: it.unit,
       qty: Math.max(1, Math.min(MAX_QTY, Math.floor(num(it.qty)) || 1)),
@@ -711,6 +721,8 @@
   }
 
   const metaText = (it) => `${unitText(it)} × ${it.qty} = ${weightText(itemKg(it))}`;
+  /** Brand + product name, as shown everywhere. */
+  const fullName = (it) => (it.brand && !it.name.toLowerCase().startsWith(it.brand.toLowerCase()) ? `${it.brand} ${it.name}` : it.name);
 
   function renderItems(c) {
     $("emptyHint").hidden = items.length > 0;
@@ -727,7 +739,7 @@
         + `<td class="c-sunit num"><span></span><span class="sub-line"></span></td>`
         + `<td class="num"><b></b><span class="sub-line sell-each"></span></td>`
         + `<td><button type="button" class="remove"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>`;
-      tr.querySelector(".item-name").textContent = it.name;
+      tr.querySelector(".item-name").textContent = fullName(it);
       if (it.photo) Object.assign(tr.querySelector(".thumb"), { src: it.photo, hidden: false });
       tr.querySelector(".item-meta").textContent = metaText(it);
       tr.querySelector(".meta-cost").children[0].textContent =
@@ -743,7 +755,7 @@
       cells[5].children[1].textContent = markupText(row, cur);
       cells[6].children[0].textContent = fmt(sell, cur);
       cells[6].children[1].textContent = `${fmt(sellUnit, cur)} each\n${markupText(row, cur)}`;
-      tr.querySelector(".remove").setAttribute("aria-label", `Remove ${it.name}`);
+      tr.querySelector(".remove").setAttribute("aria-label", `Remove ${fullName(it)}`);
       return tr;
     }));
     const pcs = items.reduce((sum, it) => sum + it.qty, 0);
@@ -807,7 +819,7 @@
   function receiptNumber() {
     const st = readNumbers();
     if (st.pinned) return st.pinned;
-    const sig = JSON.stringify([items.map((it) => [it.name, it.weight, it.unit, it.qty, it.price, it.hst, it.pct, it.add]), hstRate, Number($("zone").value) || 0]);
+    const sig = JSON.stringify([items.map((it) => [it.brand, it.name, it.weight, it.unit, it.qty, it.price, it.hst, it.pct, it.add]), hstRate, Number($("zone").value) || 0]);
     if (st.sig === sig && st.n) return st.n;
     const n = (Number(st.last) || 1000) + 1;
     writeNumbers({ ...st, last: n, sig, n });
@@ -822,7 +834,7 @@
   const estimateData = (number) => ({
     app: "crown-way-global", v: 1, number: Number(number), title: quoteTitle, date: quoteDate, hstRate,
     rate: currentRate() ? +currentRate().toFixed(4) : null, display, zone: Number($("zone").value) || 0,
-    items: items.map(({ name, weight, unit, qty, price, hst, pct, add, photo }) => ({ name, weight, unit, qty, price, hst, pct, add, photo })),
+    items: items.map(({ brand, name, weight, unit, qty, price, hst, pct, add, photo }) => ({ brand, name, weight, unit, qty, price, hst, pct, add, photo })),
   });
 
   /** Snapshot of the current estimate for export/share. Null when there are no products. */
@@ -851,9 +863,12 @@
       weightText: weightText(c.kg),
       chargedText: r.chargeablePer > c.kg + 1e-9 ? weightText(r.chargeablePer) : "",
       items: c.rows.map((row) => ({
-        name: row.it.name,
+        name: fullName(row.it),
         photo: row.it.photo,
         meta: metaText(row.it),
+        unitWeight: unitText(row.it),
+        qty: String(row.it.qty),
+        weight: weightText(itemKg(row.it)),
         buying: fmt(row.price, cur),
         hst: row.hst ? fmt(row.hst, cur) : "",
         shipping: fmt(row.ship, cur),
@@ -862,7 +877,10 @@
         markup: markupText(row, cur),
         sell: fmt(row.sell, cur),
       })),
-      totals: { price: fmt(c.totals.price, cur), hst: c.totals.hst ? fmt(c.totals.hst, cur) : "", ship: fmt(c.totals.ship, cur), cost: fmt(c.totals.cost, cur), sell: fmt(c.totals.sell, cur) },
+      totals: {
+        qty: String(items.reduce((sum, it) => sum + it.qty, 0)), weight: weightText(c.kg),
+        price: fmt(c.totals.price, cur), hst: c.totals.hst ? fmt(c.totals.hst, cur) : "", ship: fmt(c.totals.ship, cur), cost: fmt(c.totals.cost, cur), sell: fmt(c.totals.sell, cur),
+      },
       hstLabel: `HST ${hstText()}%`,
       profit: profitText(c.totals, cur),
       shippingNote: r.free ? "Free shipping applied" : parts.length ? `Shipping includes ${parts.join(", ")}` : "",
@@ -996,19 +1014,85 @@
     return ocrWorker;
   }
 
-  /** Text lines on the label, biggest text first marked, in reading order. */
-  async function readLabel(canvas) {
-    const worker = await getOcrWorker();
-    const { data } = await worker.recognize(canvas, {}, { text: true, blocks: true, hocr: false, tsv: false });
-    const lines = (data.blocks || []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines))
-      .map((l) => ({ text: l.text.replace(/\s+/g, " ").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%)+.]+$/gu, "").trim(), conf: l.confidence, h: l.bbox.y1 - l.bbox.y0, y: l.bbox.y0 }))
-      .filter((l) => l.text.length >= 2 && l.conf >= 45 && /[\p{L}\p{N}]{2}/u.test(l.text));
-    const sizes = lines.map((l) => l.h).sort((a, b) => b - a);
-    const bigCut = sizes[Math.min(2, sizes.length - 1)] ?? 0;
-    // Keep the 24 most useful lines (biggest text first), then show them in reading order
-    const kept = [...lines].sort((a, b) => b.h - a.h).slice(0, 24);
-    return kept.sort((a, b) => a.y - b.y).map((l) => ({ ...l, big: l.h >= bigCut }));
+  // ---- Brand: typed with suggestions, one tap from recent brands, or recognised from the photo ----
+  const BRANDS_KEY = "cwgBrands.v1";
+  let recentBrands = [];
+  try { recentBrands = (JSON.parse(localStorage.getItem(BRANDS_KEY)) || []).filter((b) => typeof b === "string").slice(0, 8); } catch {}
+  if (!recentBrands.length) recentBrands = [...new Set(items.map((it) => it.brand).filter(Boolean))].slice(0, 8);
+  let suggestedBrand = "";
+  function renderBrands() {
+    $("brandList").replaceChildren(...[...new Set([...recentBrands, ...Brands.list])].map((b) => new Option(b)));
+    const chip = (label, brand, cls = "") => {
+      const b = Object.assign(document.createElement("button"), { type: "button", textContent: label, className: cls });
+      b.addEventListener("click", () => { $("itemBrand").value = brand; suggestedBrand = ""; renderBrands(); $("itemName").focus(); });
+      return b;
+    };
+    $("brandChips").replaceChildren(
+      ...(suggestedBrand ? [chip(`${suggestedBrand}?`, suggestedBrand, "suggest")] : []),
+      ...recentBrands.filter((b) => b !== suggestedBrand).map((b) => chip(b, b)),
+    );
   }
+  const rememberBrand = (brand) => {
+    if (!brand) return;
+    recentBrands = [brand, ...recentBrands.filter((b) => b.toLowerCase() !== brand.toLowerCase())].slice(0, 8);
+    localStorage.setItem(BRANDS_KEY, JSON.stringify(recentBrands));
+  };
+  renderBrands();
+
+  /** Grey, contrast-stretched copy (optionally inverted for light text on dark packaging). */
+  function enhanced(canvas, invert) {
+    const out = document.createElement("canvas");
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext("2d");
+    ctx.drawImage(canvas, 0, 0);
+    const img = ctx.getImageData(0, 0, out.width, out.height), a = img.data;
+    const grey = new Float32Array(a.length / 4);
+    for (let i = 0; i < grey.length; i++) grey[i] = 0.299 * a[i * 4] + 0.587 * a[i * 4 + 1] + 0.114 * a[i * 4 + 2];
+    const sorted = Float32Array.from(grey).sort();
+    const lo = sorted[Math.floor(grey.length * 0.02)], hi = sorted[Math.floor(grey.length * 0.98)];
+    for (let i = 0; i < grey.length; i++) {
+      let v = ((grey[i] - lo) * 255) / Math.max(1, hi - lo);
+      if (invert) v = 255 - v;
+      a[i * 4] = a[i * 4 + 1] = a[i * 4 + 2] = v;
+    }
+    ctx.putImageData(img, 0, 0);
+    return out;
+  }
+
+  /**
+   * Read the label in 3 passes (normal; contrast-boosted sparse text; inverted) and merge the lines.
+   * Returns all lines with confidence; the caller decides what to show.
+   */
+  async function readLabel(img, onPass) {
+    const worker = await getOcrWorker();
+    const normal = scaled(img, { max: 1600 });
+    const large = scaled(img, { max: 2000 });
+    const passes = [[normal, "3"], [enhanced(large, false), "11"], [enhanced(large, true), "11"]];
+    const merged = new Map();
+    for (const [i, [canvas, psm]] of passes.entries()) {
+      onPass(i + 1, passes.length);
+      await worker.setParameters({ tessedit_pageseg_mode: psm });
+      const { data } = await worker.recognize(canvas, {}, { text: true, blocks: true, hocr: false, tsv: false });
+      const k = normal.width / canvas.width; // put all passes on the same scale
+      for (const l of (data.blocks || []).flatMap((b) => b.paragraphs.flatMap((p) => p.lines))) {
+        const text = l.text.replace(/\s+/g, " ").replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}%)+.]+$/gu, "").trim();
+        if (text.length < 2 || !/[\p{L}\p{N}]{2}/u.test(text)) continue;
+        const key = text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+        const line = { text, conf: l.confidence, h: (l.bbox.y1 - l.bbox.y0) * k, y: l.bbox.y0 * k };
+        const prev = merged.get(key);
+        if (!prev || line.conf > prev.conf) merged.set(key, prev ? { ...line, h: Math.max(line.h, prev.h) } : line);
+      }
+    }
+    await worker.setParameters({ tessedit_pageseg_mode: "3" });
+    const lines = [...merged.values()];
+    const sizes = lines.filter((l) => l.conf >= 45).map((l) => l.h).sort((a, b) => b - a);
+    const bigCut = sizes[Math.min(2, sizes.length - 1)] ?? Infinity;
+    return lines.sort((a, b) => a.y - b.y).map((l) => ({ ...l, big: l.h >= bigCut }));
+  }
+  $("itemBrand").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); $("itemName").focus(); }
+  });
 
   function addToName(text) {
     const name = $("itemName").value.trim();
@@ -1030,21 +1114,29 @@
     chips.replaceChildren();
     status.textContent = "Reading the label…";
     ocrProgress = (m) => {
-      if (m.status === "recognizing text") status.textContent = `Reading the label… ${Math.round(m.progress * 100)}%`;
-      else if (/load/i.test(m.status)) status.textContent = "Getting the text reader ready (first time only)…";
+      if (/load/i.test(m.status) && m.progress < 1) status.textContent = "Getting the text reader ready (first time only)…";
     };
     try {
-      const lines = await readLabel(scaled(img, { max: 1600 }));
+      const all = await readLabel(img, (n, of) => { status.textContent = `Reading the label… (${n} of ${of})`; });
+      // Brand: logos are often misread, so match against known brands (low-confidence lines count here)
+      const found = Brands.match(all.filter((l) => l.conf >= 15));
+      if (found?.sure && !$("itemBrand").value.trim()) $("itemBrand").value = found.brand;
+      suggestedBrand = found && $("itemBrand").value.trim().toLowerCase() !== found.brand.toLowerCase() ? found.brand : "";
+      renderBrands();
+      const lines = all.filter((l) => l.conf >= 45 && l !== found?.from).sort((a, b) => b.h - a.h).slice(0, 24).sort((a, b) => a.y - b.y);
       if (!lines.length) {
-        status.textContent = "No clear text found. Type the name, or try a closer, sharper photo.";
+        status.textContent = found ? "Brand found. Type the product name, or try a closer, sharper photo." : "No clear text found. Type the name, or try a closer, sharper photo.";
         return;
       }
-      // Fill the name with the large text on the label (usually brand + product + shade) if nothing is typed yet
+      // Product name: the large text on the label (product line + shade), without the brand line
       if (!$("itemName").value.trim()) {
-        $("itemName").value = lines.filter((l) => l.big).map((l) => l.text).join(" ").slice(0, 100);
-        for (const l of lines) l.used = l.big;
+        const big = lines.filter((l) => l.big);
+        $("itemName").value = (big.length ? big : lines.slice(0, 2)).map((l) => l.text).join(" ").slice(0, 100);
+        for (const l of lines) l.used = big.length ? l.big : lines.indexOf(l) < 2;
       }
-      status.textContent = "Tap text to add it to the name (brand, shade, code…). Check it matches the product exactly.";
+      status.textContent = suggestedBrand
+        ? `Is the brand ${suggestedBrand}? Tap it above to confirm. Tap text below to add it to the name (shade, code…).`
+        : "Tap text to add it to the name (shade, code…). Check it matches the product exactly.";
       chips.replaceChildren(...lines.map((l) => {
         const b = Object.assign(document.createElement("button"), { type: "button", textContent: l.text, className: [l.big ? "big" : "", l.used ? "used" : ""].join(" ").trim() });
         b.addEventListener("click", () => { addToName(l.text); b.classList.add("used"); });
@@ -1064,7 +1156,9 @@
 
   function resetForm() {
     editingId = null;
-    for (const id of ["itemName", "itemWeight", "itemPrice"]) $(id).value = "";
+    for (const id of ["itemBrand", "itemName", "itemWeight", "itemPrice"]) $(id).value = "";
+    suggestedBrand = "";
+    renderBrands();
     $("itemQty").value = 1;
     showProfit(lastProfit);
     $("itemError").textContent = "";
@@ -1076,6 +1170,7 @@
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const name = $("itemName").value.trim();
+    const brand = $("itemBrand").value.trim().slice(0, 40);
     const weight = num($("itemWeight").value);
     const price = num($("itemPrice").value);
     const pct = num($("itemPct").value);
@@ -1095,15 +1190,16 @@
       return;
     }
     const wasEditing = editingId;
-    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name, weight, unit, qty: qtyValue(), price, hst, pct, add, photo };
+    const item = { id: editingId || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, brand, name, weight, unit, qty: qtyValue(), price, hst, pct, add, photo };
+    rememberBrand(brand);
     lastProfit = { pct, add };
     localStorage.setItem(PROFIT_KEY, JSON.stringify(lastProfit));
     items = wasEditing ? items.map((it) => (it.id === wasEditing ? item : it)) : [...items, item];
     saveItems();
     resetForm();
     render();
-    toast(wasEditing ? "Product updated" : `Added ${name}`);
-    $("itemName").focus();
+    toast(wasEditing ? "Product updated" : `Added ${fullName(item)}`);
+    $("itemBrand").focus();
   });
 
   $("cancelEdit").addEventListener("click", () => { resetForm(); render(); });
@@ -1117,11 +1213,12 @@
       if (editingId === it.id) resetForm();
       saveItems();
       render();
-      toast(`Removed ${it.name}`);
+      toast(`Removed ${fullName(it)}`);
       return;
     }
     editingId = it.id;
     $("itemName").value = it.name;
+    $("itemBrand").value = it.brand || "";
     $("itemWeight").value = it.weight;
     $("itemQty").value = it.qty;
     $("itemPrice").value = it.price || "";
